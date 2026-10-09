@@ -1,0 +1,21 @@
+{
+  "installed_utc": "2026-10-09T15:25:13.699401+00:00",
+  "files": {
+    "sspp_lab/dsp.py": "2c082d2ccfd7a2f13ecb941bab03ee040b6827f5d321ca4ebb01696b778d34d4",
+    "sspp_lab/acquire_phase.py": "6472fe5377e6c4f2de30bea20df5aa36a5a80740a84aa24e17b1732b3623fc2a",
+    "sspp_lab/controller.py": "09450fca9aeeafdd656a3ade66fd97a06acba61949b5bdd4274474fb397e781e",
+    "sspp_lab/diagnostics.py": "b0eedd80312b3a4d2cb4d286bd318534f7abfc6977d969c8da193d4cd2692c8b",
+    "tests/test_controller.py": "e032fc5e268750174c64ca03f0fd2c5ba7cd5028fc7010dfe7feb2a7863ca92b",
+    "tests/test_diagnostics.py": "28d64a54f7a93608fff5706acb7a90b337becaae3ed5c4f4716daf4ee85c3ce2",
+    "tests/test_phase_timestamps.py": "4af9fa61e2877c6a07e0e3852af6eb9ac307a199e4546dc622520d35b75edecb",
+    "README.md": "93817c2345843a01f4b8785aa27d8c24f1bf40dc5482ae55663632f908673512",
+    "docs/acceptance_desktop.md": "b3377bf1e40bb7ec027bb295acd7a061e6225e353ea7796cee464d8a79860300"
+  },
+  "failed_run_preserved": true,
+  "test_result": "73 passed, 39 subtests passed",
+  "desktop_pid": 7759,
+  "previous_desktop_pid": 6531,
+  "hardware_opened_by_fix": false,
+  "hardware_retest": "pending",
+  "startup_log": "/Users/cunhui/Git-Projects/Academic_Research/sspp-usrp-PySide6-PyQtGraph/.cache/desktop_restart_20261009T152512Z.log"
+}

@@ -1,0 +1,7 @@
+{
+  "serial": "REPLACE_WITH_LOCAL_DEVICE_SERIAL",
+  "channel": 0,
+  "physical_ports": "TX1 / RX1 (user confirmed); channel 0 validated by coherent tone reception",
+  "fpga": "/absolute/path/to/verified/official/usrp_b210_fpga.bin",
+  "fpga_sha256": "REPLACE_WITH_REVIEWED_SHA256"
+}

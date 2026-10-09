@@ -1,0 +1,6 @@
+# Use the existing Conda rf-gnuradio environment; UHD is provided by Conda.
+# Versions verified on this Mac; do not pip-install another UHD distribution.
+numpy==2.4.6
+matplotlib==3.11.0
+pandas==3.0.5
+openpyxl==3.1.5

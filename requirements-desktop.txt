@@ -1,0 +1,5 @@
+# Install into the EXISTING Conda rf-gnuradio environment.
+# UHD/GNU Radio stay supplied by that environment; do not pip-install another UHD.
+PySide6==6.12.0
+pyqtgraph==0.14.0
+python-dotenv==1.2.2

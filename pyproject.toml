@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sspp-usrp-desktop"
+version = "0.1.0"
+description = "Local USRP research workstation with PySide6 and PyQtGraph"
+requires-python = ">=3.11"
+dependencies = ["PySide6==6.12.0", "pyqtgraph==0.14.0", "python-dotenv==1.2.2", "numpy", "matplotlib", "pandas", "openpyxl"]
+
+[tool.setuptools.packages.find]
+include = ["sspp_desktop*", "sspp_lab*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests", "test_phase_dsp.py", "test_run_local.py"]
+pythonpath = ["."]
+
+[tool.ruff]
+line-length = 100

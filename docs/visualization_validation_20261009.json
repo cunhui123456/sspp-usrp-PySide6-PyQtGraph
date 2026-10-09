@@ -1,0 +1,172 @@
+{
+  "schema_version": 1,
+  "real_saved_data_only": true,
+  "new_rf_capture_started": false,
+  "unit_tests_passed": 33,
+  "records": [
+    {
+      "key": "runs/20261009T105253_860767Z",
+      "status": "complete",
+      "plots": 12,
+      "groups": {
+        "diagnostic": 5,
+        "sweep": 6,
+        "phase": 0,
+        "quality": 1
+      },
+      "png_files_verified": 12,
+      "png_dimensions": [
+        1870,
+        1139
+      ],
+      "maximum_summary_mean_error": 0,
+      "manifest_hash_unchanged": true,
+      "plot_source_hashes_match": true,
+      "validation_seconds": 0.15
+    },
+    {
+      "key": "runs/20261009T111251_281262Z",
+      "status": "complete",
+      "plots": 12,
+      "groups": {
+        "diagnostic": 5,
+        "sweep": 6,
+        "phase": 0,
+        "quality": 1
+      },
+      "png_files_verified": 12,
+      "png_dimensions": [
+        1870,
+        1139
+      ],
+      "maximum_summary_mean_error": 0,
+      "manifest_hash_unchanged": true,
+      "plot_source_hashes_match": true,
+      "validation_seconds": 0.136
+    },
+    {
+      "key": "phase_runs/20261009T105342_444179Z",
+      "status": "complete",
+      "plots": 24,
+      "groups": {
+        "diagnostic": 5,
+        "sweep": 0,
+        "phase": 11,
+        "quality": 8
+      },
+      "png_files_verified": 24,
+      "png_dimensions": [
+        1870,
+        1139
+      ],
+      "maximum_summary_mean_error": 4.099151573733195e-15,
+      "manifest_hash_unchanged": true,
+      "plot_source_hashes_match": true,
+      "validation_seconds": 0.289
+    },
+    {
+      "key": "phase_runs/20261009T032739_766293Z",
+      "status": "complete",
+      "plots": 24,
+      "groups": {
+        "diagnostic": 5,
+        "sweep": 0,
+        "phase": 11,
+        "quality": 8
+      },
+      "png_files_verified": 24,
+      "png_dimensions": [
+        1870,
+        1139
+      ],
+      "maximum_summary_mean_error": 1.9845236565174673e-15,
+      "manifest_hash_unchanged": true,
+      "plot_source_hashes_match": true,
+      "validation_seconds": 0.325
+    },
+    {
+      "key": "phase_runs/20260908T120220_240708Z",
+      "status": "complete",
+      "plots": 24,
+      "groups": {
+        "diagnostic": 5,
+        "sweep": 0,
+        "phase": 11,
+        "quality": 8
+      },
+      "png_files_verified": 24,
+      "png_dimensions": [
+        1870,
+        1139
+      ],
+      "maximum_summary_mean_error": 1.0451708942760263e-15,
+      "manifest_hash_unchanged": true,
+      "plot_source_hashes_match": true,
+      "validation_seconds": 0.318
+    }
+  ],
+  "protected_original_files_unchanged": 114,
+  "png_total": 96,
+  "pdf_total": 5,
+  "software_source_hashes": [
+    {
+      "file": "sspp_lab/controller.py",
+      "sha256": "979c43577aa0250fa477e96bbcb7cb634533ac0ab2e24596c5a17f8d964b38f0"
+    },
+    {
+      "file": "sspp_lab/web_server.py",
+      "sha256": "8b1a6744cac399cd2fdc399fb3ae3d2cb2e3898fada45ca34aa8ea434facc655"
+    },
+    {
+      "file": "sspp_lab/web/index.html",
+      "sha256": "705316e2c38bcc6070ccc565466a9be53479d1ee9cc8e66d7e7fde01e37dd450"
+    },
+    {
+      "file": "sspp_lab/web/app.js",
+      "sha256": "5c38251a2dc1d9d4baace0e94ebd774137bd0de3c1ba4677260b7ea09738506f"
+    },
+    {
+      "file": "sspp_lab/web/style.css",
+      "sha256": "a8173d79ce7d73985d3c0d49cd228d32556dcd5760b629376b06f0729a3c0517"
+    },
+    {
+      "file": "README.md",
+      "sha256": "bf07fd25f01c3b30eb195990f6d770c2bfb9532d5439667a471c4665474099d5"
+    },
+    {
+      "file": "sspp_lab/diagnostics.py",
+      "sha256": "113c323d1e460f5d8968e46c3b5e9b2e829049cc57d1878bea8897eb71551dd7"
+    },
+    {
+      "file": "sspp_lab/export_figures.py",
+      "sha256": "53553a7f5c4f99b5a262f509a916e309b69368c0960c1da4595879b1b8cc8da4"
+    },
+    {
+      "file": "sspp_lab/web/plots.js",
+      "sha256": "1adab92d41f80f6a770240ce820c3a649100fd4e1559192a340b35fdab534094"
+    },
+    {
+      "file": "tests/test_diagnostics.py",
+      "sha256": "957eaf475c1d34aa0c1116b32e00d16633f539a98037444677c9b5ab29fe1970"
+    },
+    {
+      "file": "docs/visualizations.md",
+      "sha256": "52afff3f0aa482c276dddeabfe029bb2342679e745b11e700024892932b157e2"
+    }
+  ],
+  "pdf_mcp_verified_page_counts": [
+    12,
+    12,
+    24,
+    24,
+    24
+  ],
+  "browser_controls_verified": [
+    "groups",
+    "expand",
+    "pointer_readout",
+    "canvas_png_download",
+    "full_report_export",
+    "history_gallery_titles"
+  ]
+}

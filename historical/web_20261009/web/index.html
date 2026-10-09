@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="sspp-token" content="__TOKEN__"><title>SSPP 实验台</title><link rel="stylesheet" href="/style.css"><script src="/app.js" defer></script><script src="/plots.js" defer></script></head>
+<body>
+<header><div class="brand"><span class="symbol">≈</span><div><h1>SSPP 实验台</h1><p>本机 · B210 · 射频传感实验</p></div></div><div class="connection"><span id="connectionDot"></span><span id="connectionText">连接服务中</span></div></header>
+<main>
+<div class="intro"><div><p class="eyebrow">实验工作区</p><h2>从参数到原始记录</h2><p>选择实验，确认初始条件，开始记录。动作时机由你掌握。</p></div><div class="runtime"><span>当前状态</span><strong id="statusText">待开始</strong><small id="statusDetail">服务启动不会自动收发</small></div></div>
+<div id="notice" role="status" hidden></div>
+<div class="workspace">
+<section class="panel setup"><div class="section-heading"><h3>实验设置</h3><span id="lockedBadge" hidden>运行中已锁定</span></div>
+<form id="experimentForm">
+<fieldset id="configFields">
+<label>设备配置<select name="profile" id="profile"></select></label>
+<div class="row"><label>记录方式<select name="mode" id="mode"><option value="sweep">扫频</option><option value="phase">连续幅相</option></select></label><label>实验条件<select name="condition" id="condition"><option value="empty">空载基线</option><option value="finger">手指靠近／远离</option><option value="material">材料加载</option></select></label></div>
+<p class="hint">可调载频 70 MHz–6 GHz；输入单位为 GHz，70 MHz = 0.07 GHz。</p>
+<label>实验标签<input name="label" id="label" value="empty_baseline" maxlength="80" required><small>用于保存实验和初始阶段，允许文字、数字、_ 和 -</small></label>
+<label>传感器名称／版本<input name="sensor" placeholder="例如：新传感器 A" maxlength="80"></label>
+<div class="mode-sweep"><div class="row"><label>起点 GHz<input name="freq_start_ghz" type="number" min="0.07" max="6" step=".001" value="2.4"></label><label>终点 GHz<input name="freq_stop_ghz" type="number" min="0.07" max="6" step=".001" value="3"></label></div><div class="row"><label>频点数<input name="points" type="number" min="2" max="100" value="12"></label><label>重复轮数<input name="repeat" type="number" min="1" max="20" value="3"></label></div><div class="row"><label>总时限 s<input name="max_seconds" type="number" min="10" max="3600" value="90"></label><label>单点时限 s<input name="point_timeout" type="number" min="1" max="30" value="8"></label></div></div>
+<div class="mode-phase" hidden><div class="row"><label>载频 GHz<input name="carrier_ghz" type="number" min="0.07" max="6" step=".001" value="2.4"></label><label>记录时长 s<input name="duration" type="number" min="10" max="180" value="120"></label></div><label>基带单音 Hz<input name="tone" type="number" min="1" max="50000" value="10000"></label><p class="hint">先保持初始状态静止约 7 秒，基线通过后再手动标记阶段。</p></div>
+<details><summary>采样与发射参数</summary><div class="row"><label>采样率 S/s<input name="rate" type="number" min="200000" max="2000000" step="1000" value="250000"></label><label>数字幅值<input name="amplitude" type="number" min=".001" max=".3" step=".001" value=".3"></label></div><div class="row"><label>TX gain dB<input name="tx_gain" type="number" min="0" max="30" step=".5" value="20"></label><label>RX gain dB<input name="rx_gain" type="number" min="0" max="76" step=".5" value="30"></label></div><div class="row mode-sweep"><label>首个基带单音 Hz<input name="tone_start" type="number" min="1" max="50000" value="2000"></label><label>单音步进 Hz<input name="tone_step" type="number" min="0" max="20000" value="1000"></label></div></details>
+<label class="check"><input name="setup_confirmed" type="checkbox" id="setupConfirmed"><span>已确认所选设备的 TX1/RX1 接在传感器两端，线缆固定，初始测试状态已准备好。</span></label>
+</fieldset>
+<div class="actions"><button type="button" id="planButton" class="secondary">检查参数</button><button type="submit" id="startButton">开始实验</button></div>
+</form>
+<button type="button" id="stopButton" class="stop" disabled>停止收发并保存</button>
+</section>
+<div class="right-column">
+<section class="panel live"><div class="section-heading"><h3 id="chartTitle">实时扫频曲线</h3><button id="liveButton" class="text-button" hidden>返回当前实验</button></div>
+<div class="metrics"><div><span id="metricLabel1">已测频点</span><strong id="metric1">—</strong></div><div><span id="metricLabel2">当前轮次</span><strong id="metric2">—</strong></div><div><span>当前阶段</span><strong id="metric3">待开始</strong></div></div>
+<div class="chart"><canvas id="amplitudeCanvas" aria-label="幅度曲线"></canvas><p id="amplitudeCaption">FFT 峰值幅度（dBFS 估计值） · 载频（GHz）</p></div>
+<div class="chart phase-chart" id="phaseChart" hidden><canvas id="phaseCanvas" aria-label="相位曲线"></canvas><p>相对初始参考的相位变化（°） · 时间（s）</p></div>
+<p class="empty-chart" id="emptyChart">开始实验后，真实测量数据会显示在这里。</p>
+<p class="hint" id="chartHint">扫频各轮使用不同颜色。数字幅度未经绝对功率或 S21 标定。</p>
+</section>
+<section class="panel" id="marksPanel" hidden><div class="section-heading"><h3>手动阶段标记</h3><span id="baselineState">等待静止基线</span></div><fieldset id="markFields" disabled><div class="mark-buttons" id="quickMarks"><button type="button" class="secondary" data-mark="finger_near">靠近</button><button type="button" class="secondary" data-mark="finger_far">远离</button><button type="button" class="secondary" data-mark="material_loaded">材料已加载</button><button type="button" class="secondary" data-mark="material_removed">材料已移除</button></div><div class="row"><label>自定义阶段<input id="markLabel" placeholder="例如 water_2of3" maxlength="80"></label><label>过渡等待 s<input id="settleSeconds" type="number" value="3" min="0" max="30" step=".5"></label></div><label class="check"><input type="checkbox" id="contactReported"><span>此阶段发生了接触传感器或线缆</span></label><button type="button" class="secondary" id="markButton">记录自定义阶段</button></fieldset><p class="hint">按钮记录操作时刻和阶段；实际距离需另行测量。接触情况会单独保存。</p><ol id="eventList" class="event-list"></ol></section>
+<section class="panel diagnostic-panel"><div class="section-heading"><h3>实验图像与诊断</h3><button id="refreshPlots" class="text-button">刷新图像</button></div>
+<p id="plotStatus" class="hint">等待真实数据</p><div class="signal-path" aria-label="收发链路"><span>TX基带设定<br><small>数学参考</small></span><b>→</b><span>B210 TX</span><b>→</b><span>SSPP</span><b>→</b><span>B210 RX<br><small>实际IQ</small></span></div>
+<p id="rxPreviewSummary" class="hint">尚无RX IQ</p><nav class="plot-tabs" aria-label="诊断图分组"><button type="button" data-plot-group="diagnostic" class="active" aria-pressed="true">接收诊断</button><button type="button" id="plotTabSweep" data-plot-group="sweep" aria-pressed="false">扫频分析</button><button type="button" id="plotTabPhase" data-plot-group="phase" aria-pressed="false">幅相分析</button><button type="button" data-plot-group="quality" aria-pressed="false">采集质量</button></nav>
+<div id="plotGrid" class="plot-grid"></div><details class="quality-details"><summary>采集计数与停止证据</summary><div id="qualityFacts" class="quality-facts"></div></details>
+<div class="plot-export"><button id="exportPlots" type="button" class="secondary" disabled>生成PNG与PDF图册</button><p id="exportProgress" class="hint">采集停止后生成，可查看真实历史实验；原始IQ和manifest保持。</p></div>
+<details id="figureGalleryDetails"><summary>已保存图像 <span id="figureGalleryCount"></span></summary><div id="figureGallery" class="figure-gallery"></div></details></section>
+<section class="panel records"><div class="section-heading"><h3>实验记录</h3><button class="text-button" id="refreshHistory">刷新</button></div><div id="historyList" class="history-list"><p class="hint">正在读取历史记录…</p></div><div id="runDetails" hidden><h4 id="runDetailTitle"></h4><p id="runDetailSummary"></p><div id="fileList" class="file-list"></div></div></section>
+<details class="panel log-panel"><summary>运行日志</summary><pre id="logs">等待实验开始</pre></details>
+</div>
+</div>
+</main><footer>SSPP 实验软件 v1.0 · 数据保存在本机项目 Data 目录</footer>
+<dialog id="plotDialog"><div class="section-heading"><h3 id="expandedTitle"></h3><button id="closePlot" class="secondary">关闭放大图</button></div><canvas id="expandedCanvas" aria-label="放大的诊断图"></canvas><div id="expandedLegend" class="plot-legend"></div><p id="expandedNote" class="hint"></p><p id="expandedReadout" class="plot-readout">移动指针查看读数</p><button id="savePlotView" class="secondary">下载当前视图PNG</button></dialog></body></html>
