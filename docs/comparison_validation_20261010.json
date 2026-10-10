@@ -1,0 +1,82 @@
+{
+  "validated_at": "2026-10-10T12:19:11.009717+08:00",
+  "environment": "existing Conda rf-gnuradio",
+  "full_regression": {
+    "tests_passed": 152,
+    "subtests_passed": 85,
+    "seconds": 8.05,
+    "exit_code": 0,
+    "qt_platform": "offscreen"
+  },
+  "real_history_exports": [
+    {
+      "name": "empty_water",
+      "count": 18,
+      "bytes": 484419,
+      "sha256": "fe73b70118cf237bdd24962d60676d42dd333ed3528c287735bdac1e1808675e",
+      "warnings": [
+        "传感器/机械位置的一致性未得到完整记录；叠加及数字幅度差不能证明材料造成了变化。",
+        "幅度与差值不是校准 S21/dBm；不同会话可能存在姿态、温漂和环境变化。"
+      ],
+      "source_keys": [
+        "runs/20261010T033329_668100Z",
+        "runs/20261010T033422_007353Z"
+      ],
+      "charts": 3,
+      "rows": {
+        "sweep_summary": 24,
+        "sweep_measurements": 72,
+        "sweep_difference": 12
+      },
+      "per_file_hashes_verified": true,
+      "artifact_name": "empty_water_comparison.zip"
+    },
+    {
+      "name": "history_phase",
+      "count": 19,
+      "bytes": 1773029,
+      "sha256": "811bbe8001230716a68ddcef5fc4123e9d06979878b0431bdf3e18897a3445b1",
+      "warnings": [
+        "测量参数不同或未知：估计器源码一致性。仅叠加查看，禁止定量参考差值。",
+        "传感器/机械位置的一致性未得到完整记录；叠加及数字幅度差不能证明材料造成了变化。",
+        "每次采集有独立相位原点：只比较相对响应形状，不跨记录相减相位，不复用毫米模型或输出跨会话绝对位移。",
+        "各动作/过渡窗口保留为实际响应；全程峰峰值含运动与漂移，不是静止段噪声或可重复性。仅按基线结束对齐，不能推断动作时延差。"
+      ],
+      "source_keys": [
+        "phase_runs/20261009T152709_514652Z",
+        "phase_runs/20261009T105342_444179Z"
+      ],
+      "charts": 3,
+      "rows": {
+        "phase_summary": 2,
+        "phase_curves": 5348
+      },
+      "per_file_hashes_verified": true,
+      "artifact_name": "history_phase_comparison.zip"
+    }
+  ],
+  "visual_review": [
+    "结果页 1480×1000 / 1080×740 筛选和勾选",
+    "比较窗口扫频图表与参数表",
+    "连续幅相图及500行预览",
+    "PNG 中的参考名称、差值方向与来源限制"
+  ],
+  "read_only_data_snapshot": {
+    "files": 894,
+    "bytes": 1242425155,
+    "all_stage_hashes_match": true
+  },
+  "hardware_opened": false,
+  "limits": [
+    "老师 GUI 历史格式仅筛选与单条导出，未适配多选比较。",
+    "扫频差值是数字幅度描述；未记录机械位置和传感器条件，不能作为材料因果。",
+    "连续幅相各自基线，禁止跨会话相位差和毫米模型迁移。"
+  ],
+  "installation_evidence": "comparison_installation_20261010.json",
+  "final_layout_regression": {
+    "tests_passed": 10,
+    "seconds": 1.73,
+    "exit_code": 0,
+    "scope": "tests/test_comparison_ui.py after final chart layout adjustment"
+  }
+}

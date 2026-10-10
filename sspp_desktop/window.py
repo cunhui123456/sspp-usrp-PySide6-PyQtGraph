@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime, timezone
 from pathlib import Path
 import shutil
 import time
@@ -10,12 +11,18 @@ from PySide6 import QtCore, QtGui, QtWidgets
 from sspp_lab.controller import DEFAULTS
 from .plots import DiagnosticPlot, LivePlots, PreviewPlots
 from .workers import TaskRunner
+from .qt_cleanup import close_plot_widgets
+from .experiments.material_sweep import MaterialSweepWidget
+from .experiments.finger_displacement import FingerDisplacementWidget
+from .comparison_widget import ComparisonDialog
 
 BUSY = {"starting", "running", "stopping", "saving"}
 STATUS = {"starting": "正在初始化", "running": "正在采集", "stopping": "正在停止", "saving": "正在保存",
           "complete": "已完成", "stopped": "已停止并保存", "failed": "实验失败", "initialization_failed": "初始化失败",
-          "stop_unconfirmed": "停止状态待确认", "unknown": "未知"}
+          "stop_unconfirmed": "停止状态待确认", "initializing": "初始化中", "failed_or_incomplete": "失败或未完成", "unknown": "未知"}
 GROUPS = {"diagnostic": "接收诊断", "sweep": "扫频分析", "phase": "幅相分析", "quality": "采集质量"}
+CATEGORIES = {"material_sweep": "材料逐点扫频", "finger_displacement": "手指位移",
+              "phase_history": "历史连续幅相", "teacher_sweep": "老师原版扫频"}
 
 
 def label(text, role=None):
@@ -35,6 +42,12 @@ class MainWindow(QtWidgets.QMainWindow):
         self.snapshot = {}
         self.viewing_key = None
         self.history_rows = []
+        self._history_all_rows = []
+        self._selected_history_key = None
+        self.comparison_keys = set()
+        self.comparison_dialog = None
+        self._comparison_generation = 0
+        self._comparison_busy = False
         self.selected_details = None
         self.diagnostic_model = {}
         self.replay = None
@@ -48,6 +61,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self._shutdown_done = False
         self._start_pending = False
         self._shutdown_submitted = False
+        self._close_timer = QtCore.QTimer(self)
+        self._close_timer.setSingleShot(True)
+        self._close_timer.timeout.connect(self._finish_close)
         self.setWindowTitle("SSPP 实验台 · PySide6 + PyQtGraph")
         self.resize(1480, 1000)
         self.setMinimumSize(1080, 740)
@@ -69,7 +85,7 @@ class MainWindow(QtWidgets.QMainWindow):
         heading = QtWidgets.QHBoxLayout()
         title = QtWidgets.QVBoxLayout()
         title.addWidget(label("SSPP 实验台", "title"))
-        subtitle = label("本机 · B210 · 实时幅相与射频传感实验", "muted")
+        subtitle = label("材料频率响应 · 手指距离标定与验证 · 本机 B210", "muted")
         subtitle.setMinimumWidth(450)
         title.addWidget(subtitle)
         heading.addLayout(title)
@@ -88,12 +104,21 @@ class MainWindow(QtWidgets.QMainWindow):
         splitter.addWidget(self._build_sidebar())
         self.tabs = QtWidgets.QTabWidget()
         self.tabs.addTab(self._build_live(), "实时实验")
-        self.tabs.addTab(self._build_history(), "历史记录与回放")
+        self.tabs.addTab(self._build_history(), "实验结果与回放")
         self.tabs.addTab(self._build_diagnostics(), "离线分析")
         self.logs = QtWidgets.QPlainTextEdit()
         self.logs.setReadOnly(True)
         self.logs.setMaximumBlockCount(250)
         self.tabs.addTab(self.logs, "运行日志")
+        self.finger_workspace = FingerDisplacementWidget()
+        self.finger_tab = self.tabs.addTab(self.finger_workspace, "手指标定与验证")
+        self.finger_workspace.begin_requested.connect(self._finger_begin)
+        self.finger_workspace.cancel_requested.connect(self._finger_cancel)
+        self.finger_workspace.action_requested.connect(self._finger_action)
+        self.finger_workspace.analyze_requested.connect(self._finger_analyze)
+        self.finger_workspace.current_requested.connect(self._finger_current)
+        self.finger_workspace.export_requested.connect(lambda path: QtGui.QDesktopServices.openUrl(QtCore.QUrl.fromLocalFile(path)))
+        self._mode_changed()
         splitter.addWidget(self.tabs)
         splitter.setSizes([340, 1100])
         splitter.setStretchFactor(0, 0)
@@ -112,6 +137,7 @@ class MainWindow(QtWidgets.QMainWindow):
             QPushButton:hover {background: #e5f1f2;} QPushButton:disabled {color: #8c9ca5; background: #eff2f3; border-color: #dce2e5;}
             QPushButton#primary {color: white; background: #087f85; border-color: #087f85; font-weight: 600;}
             QPushButton#stop {color: #a03e42; border-color: #d7a6a7; background: #fff3f2; font-weight: 600;}
+            QPushButton#primary:disabled, QPushButton#stop:disabled {color: #8c9ca5; background: #eff2f3; border-color: #dce2e5;}
             QLineEdit, QSpinBox, QDoubleSpinBox, QComboBox {background: #ffffff; border: 1px solid #bdcdd5; border-radius: 4px; padding: 5px;}
             QTabWidget::pane {border: 1px solid #d3e0e5; background: #ffffff;} QTabBar::tab {padding: 10px 18px;}
             QTabBar::tab:selected {background: #ffffff; color: #087f85;} QTableWidget {border: 1px solid #dbe5e9; gridline-color: #eef2f4;}
@@ -133,30 +159,41 @@ class MainWindow(QtWidgets.QMainWindow):
         self.config_container = QtWidgets.QWidget()
         cl = QtWidgets.QVBoxLayout(self.config_container)
         cl.setContentsMargins(0, 0, 0, 0)
-        group = QtWidgets.QGroupBox("实验设置")
+        workspace = QtWidgets.QGroupBox("选择实验工作区")
+        wl = QtWidgets.QVBoxLayout(workspace)
+        self.mode = self._combo("mode", [("手指位移 · 固定频率", "phase"), ("材料响应 · 逐点扫频", "sweep")])
+        wl.addWidget(self.mode)
+        self.workspace_hint = label("", "muted")
+        wl.addWidget(self.workspace_hint)
+        self.research_button = QtWidgets.QPushButton("进入手指标定与验证 →")
+        self.research_button.clicked.connect(lambda: self.tabs.setCurrentIndex(self.finger_tab))
+        wl.addWidget(self.research_button)
+        cl.addWidget(workspace)
+        self.material_workspace = MaterialSweepWidget()
+        cl.addWidget(self.material_workspace)
+        group = QtWidgets.QGroupBox("设备与记录")
         form = QtWidgets.QFormLayout(group)
         self.profile = self._combo("profile", [])
         form.addRow("设备配置", self.profile)
-        self.mode = self._combo("mode", [("连续幅相", "phase"), ("逐点扫频", "sweep")])
-        form.addRow("记录方式", self.mode)
-        form.addRow("实验条件", self._combo("condition", [("空载基线", "empty"), ("手指靠近／远离", "finger"), ("材料加载", "material")]))
-        self.fields["label"] = QtWidgets.QLineEdit(DEFAULTS["label"])
+        self._combo("condition", [("手指距离实验", "finger"), ("材料响应实验", "material")]).hide()
+        self.fields["label"] = QtWidgets.QLineEdit("finger_session")
         self.fields["label"].setMaxLength(80)
         self.fields["label"].setToolTip("文字、数字、下划线和连字符")
-        form.addRow("实验标签", self.fields["label"])
+        self.session_label = label("会话标签")
+        form.addRow(self.session_label, self.fields["label"])
         self.fields["sensor"] = QtWidgets.QLineEdit()
         self.fields["sensor"].setMaxLength(80)
         self.fields["sensor"].setPlaceholderText("传感器名称／版本")
         form.addRow("传感器", self.fields["sensor"])
         cl.addWidget(group)
-        self.phase_group = QtWidgets.QGroupBox("连续幅相参数")
+        self.phase_group = QtWidgets.QGroupBox("手指实验 · 固定频率连续记录")
         pf = QtWidgets.QFormLayout(self.phase_group)
         self._number(pf, "carrier_ghz", "载频 GHz", .07, 6, 3, .001)
         self._number(pf, "duration", "记录时长 s", 10, 180, 1, 10)
         self._number(pf, "tone", "基带单音 Hz", 1, 50000, 0, 100)
         pf.addRow(label("先保持初始状态静止约 7 秒，参考通过后再标记阶段。", "muted"))
         cl.addWidget(self.phase_group)
-        self.sweep_group = QtWidgets.QGroupBox("扫频参数")
+        self.sweep_group = QtWidgets.QGroupBox("材料实验 · 扫频计划")
         sf = QtWidgets.QFormLayout(self.sweep_group)
         for key, name, lo, hi, decimals, step in [
             ("freq_start_ghz", "起点 GHz", .07, 6, 3, .001), ("freq_stop_ghz", "终点 GHz", .07, 6, 3, .001),
@@ -165,13 +202,20 @@ class MainWindow(QtWidgets.QMainWindow):
             ("tone_start", "首个单音 Hz", 1, 50000, 0, 100), ("tone_step", "单音步进 Hz", 0, 20000, 0, 100)]:
             self._number(sf, key, name, lo, hi, decimals, step)
         cl.addWidget(self.sweep_group)
-        advanced = QtWidgets.QGroupBox("采样与发射参数")
-        af = QtWidgets.QFormLayout(advanced)
+        advanced = QtWidgets.QGroupBox("高级参数")
+        al = QtWidgets.QVBoxLayout(advanced)
+        self.advanced_toggle = QtWidgets.QCheckBox("展开采样率、幅值和增益")
+        al.addWidget(self.advanced_toggle)
+        advanced_fields = QtWidgets.QWidget()
+        af = QtWidgets.QFormLayout(advanced_fields)
         for key, name, lo, hi, decimals, step in [
             ("rate", "采样率 S/s", 200000, 2000000, 0, 1000), ("amplitude", "数字幅值", .001, .3, 3, .001),
             ("tx_gain", "TX gain dB", 0, 30, 1, .5), ("rx_gain", "RX gain dB", 0, 76, 1, .5)]:
             self._number(af, key, name, lo, hi, decimals, step)
         af.addRow(label("可调载频 70 MHz–6 GHz；数字幅值不是实测射频功率。", "muted"))
+        al.addWidget(advanced_fields)
+        advanced_fields.hide()
+        self.advanced_toggle.toggled.connect(advanced_fields.setVisible)
         cl.addWidget(advanced)
         self.confirm = QtWidgets.QCheckBox("已确认设备接线、线缆固定及初始状态")
         self.confirm.setToolTip("所选设备 TX1/RX1 接在传感器两端；确认本次允许频段、功率与负载。")
@@ -181,6 +225,10 @@ class MainWindow(QtWidgets.QMainWindow):
         config_layout.addStretch()
         scroll.setWidget(holder)
         layout.addWidget(scroll, 1)
+        self.reset_button = QtWidgets.QPushButton("参数复位")
+        self.reset_button.setToolTip("恢复两类实验的全部采集参数和共用高级参数；保留设备、材料名称、会话标签、传感器与手指标定记录。")
+        self.reset_button.clicked.connect(self.reset_parameters)
+        layout.addWidget(self.reset_button)
         buttons = QtWidgets.QHBoxLayout()
         self.check_button = QtWidgets.QPushButton("检查参数")
         self.check_button.clicked.connect(self.preflight)
@@ -221,6 +269,21 @@ class MainWindow(QtWidgets.QMainWindow):
         phase = self.mode.currentData() == "phase"
         self.phase_group.setVisible(phase)
         self.sweep_group.setVisible(not phase)
+        self.material_workspace.setVisible(not phase)
+        self.fields["condition"].setCurrentIndex(self.fields["condition"].findData("finger" if phase else "material"))
+        self.fields["label"].setVisible(phase)
+        self.session_label.setVisible(phase)
+        self.research_button.setVisible(phase)
+        self.workspace_hint.setText("连续幅相 → 尺量定位 → 稳定窗口 → 标定与独立验证 → 毫米估计" if phase else "填写材料名称 → 固定条件 → 多轮扫频 → 幅度响应与导出")
+        self.start_button.setText("开始手指实验" if phase else "开始材料扫频")
+        if hasattr(self, "tabs") and hasattr(self, "finger_tab"):
+            self.tabs.setTabEnabled(self.finger_tab, phase)
+        if hasattr(self, "live_plots"):
+            self.workflow_shortcut.setVisible(phase)
+            self.mark_group.setVisible(phase and self.viewing_key is None and self.replay is None)
+            if not self.snapshot.get("job") and self.viewing_key is None:
+                self._render_live({"mode": "phase" if phase else "sweep", "points": []})
+                self._live_revision = None
 
     def _build_live(self):
         page = QtWidgets.QWidget()
@@ -231,14 +294,22 @@ class MainWindow(QtWidgets.QMainWindow):
         self.return_live_button = QtWidgets.QPushButton("返回当前实验")
         self.return_live_button.clicked.connect(self.return_live)
         top.addWidget(self.return_live_button)
+        self.current_result_button = QtWidgets.QPushButton("本次结果与导出 →")
+        self.current_result_button.setEnabled(False)
+        self.current_result_button.clicked.connect(self._open_current_result)
+        top.addWidget(self.current_result_button)
         layout.addLayout(top)
+        self.workflow_shortcut = QtWidgets.QPushButton("手指研究：采集稳定窗口、标定与验证 →")
+        self.workflow_shortcut.clicked.connect(lambda: self.tabs.setCurrentIndex(self.finger_tab))
+        layout.addWidget(self.workflow_shortcut)
         self.metrics = label("幅度 —     相位 —     阶段 —", "muted")
         layout.addWidget(self.metrics)
         self.live_plots = LivePlots()
         layout.addWidget(self.live_plots, 3)
         self.diagnostic_toggle = QtWidgets.QCheckBox("展开实时 RX 诊断（时域 / 频谱 / IQ）")
-        self.diagnostic_toggle.setChecked(True)
+        self.diagnostic_toggle.setChecked(False)
         self.preview_plots = PreviewPlots()
+        self.preview_plots.hide()
         self.diagnostic_toggle.toggled.connect(self._toggle_preview)
         layout.addWidget(self.diagnostic_toggle)
         layout.addWidget(self.preview_plots, 2)
@@ -287,18 +358,50 @@ class MainWindow(QtWidgets.QMainWindow):
         page = QtWidgets.QWidget()
         layout = QtWidgets.QVBoxLayout(page)
         top = QtWidgets.QHBoxLayout()
-        top.addWidget(label("已保存实验 · 选择记录查看曲线、回放或生成图册", "viewBanner"), 1)
+        top.addWidget(label("已保存实验 · 单行查看详情，勾选同类记录比较", "viewBanner"), 1)
         refresh = QtWidgets.QPushButton("刷新记录")
         refresh.clicked.connect(self.refresh_history)
         top.addWidget(refresh)
         layout.addLayout(top)
-        self.history_table = QtWidgets.QTableWidget(0, 5)
-        self.history_table.setHorizontalHeaderLabels(["开始时间（UTC）", "实验标签", "类型", "状态", "传感器"])
+        filters = QtWidgets.QHBoxLayout()
+        self.history_type = QtWidgets.QComboBox()
+        self.history_type.addItem("全部实验类型", "")
+        for key, name in CATEGORIES.items():
+            self.history_type.addItem(name, key)
+        self.history_status = QtWidgets.QComboBox()
+        self.history_status.addItem("全部状态", "")
+        for key, name in STATUS.items():
+            self.history_status.addItem(name, key)
+        self.history_search = QtWidgets.QLineEdit()
+        self.history_search.setPlaceholderText("搜索名称、传感器或实验 key")
+        filters.addWidget(self.history_type)
+        filters.addWidget(self.history_status)
+        filters.addWidget(self.history_search, 1)
+        self.history_type.currentIndexChanged.connect(self._filter_history)
+        self.history_status.currentIndexChanged.connect(self._filter_history)
+        self.history_search.textChanged.connect(self._filter_history)
+        layout.addLayout(filters)
+        selection = QtWidgets.QHBoxLayout()
+        self.comparison_count = label("已勾选 0 / 8 条", "muted")
+        selection.addWidget(self.comparison_count, 1)
+        self.comparison_clear = QtWidgets.QPushButton("清空勾选")
+        self.comparison_clear.clicked.connect(self.clear_comparison_selection)
+        selection.addWidget(self.comparison_clear)
+        self.compare_button = QtWidgets.QPushButton("比较所选实验")
+        self.compare_button.setObjectName("primary")
+        self.compare_button.clicked.connect(self.compare_selected)
+        selection.addWidget(self.compare_button)
+        layout.addLayout(selection)
+        self.history_table = QtWidgets.QTableWidget(0, 6)
+        self.history_table.setHorizontalHeaderLabels(["比较", "开始时间（本机时区）", "实验标签", "类型", "状态", "传感器"])
         self.history_table.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
         self.history_table.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
         self.history_table.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.SingleSelection)
         self.history_table.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.ResizeMode.Stretch)
+        self.history_table.horizontalHeader().setSectionResizeMode(0, QtWidgets.QHeaderView.ResizeMode.ResizeToContents)
+        self.history_table.horizontalHeader().setSectionResizeMode(1, QtWidgets.QHeaderView.ResizeMode.ResizeToContents)
         self.history_table.itemSelectionChanged.connect(self._select_history)
+        self.history_table.itemChanged.connect(self._comparison_item_changed)
         layout.addWidget(self.history_table, 2)
         row = QtWidgets.QHBoxLayout()
         self.view_history_button = QtWidgets.QPushButton("查看已保存曲线")
@@ -307,13 +410,23 @@ class MainWindow(QtWidgets.QMainWindow):
         self.analyze_button = QtWidgets.QPushButton("加载完整诊断")
         self.analyze_button.clicked.connect(self.load_diagnostics)
         row.addWidget(self.analyze_button)
-        self.export_button = QtWidgets.QPushButton("生成 PNG / PDF 图册")
-        self.export_button.clicked.connect(self.export_diagnostics)
+        self.export_button = QtWidgets.QPushButton("打包导出实验…")
+        self.export_button.clicked.connect(self.export_bundle)
         row.addWidget(self.export_button)
         self.open_run_button = QtWidgets.QPushButton("打开实验目录")
         self.open_run_button.clicked.connect(self.open_run)
         row.addWidget(self.open_run_button)
         layout.addLayout(row)
+        export_options = QtWidgets.QHBoxLayout()
+        self.include_raw = QtWidgets.QCheckBox("包含原始 IQ（文件较大）")
+        self.include_raw.setToolTip("勾选后加入 cf32 / npz 原始 IQ；参数、JSONL/结果、重要图表始终包含。")
+        export_options.addWidget(self.include_raw)
+        self.finger_history_button = QtWidgets.QPushButton("手指记录：标注区间 / 标定验证")
+        self.finger_history_button.setEnabled(False)
+        self.finger_history_button.clicked.connect(self._finger_load_history)
+        export_options.addWidget(self.finger_history_button)
+        export_options.addStretch()
+        layout.addLayout(export_options)
         playback = QtWidgets.QGroupBox("历史回放 · 只读数据，不启动硬件")
         pl = QtWidgets.QHBoxLayout(playback)
         self.replay_button = QtWidgets.QPushButton("载入并播放")
@@ -354,6 +467,7 @@ class MainWindow(QtWidgets.QMainWindow):
         bottom.addWidget(files_widget)
         layout.addWidget(bottom, 2)
         self._history_buttons(False)
+        self._update_comparison_controls()
         return page
 
     def _build_diagnostics(self):
@@ -392,7 +506,82 @@ class MainWindow(QtWidgets.QMainWindow):
                 result[key] = widget.text().strip()
             else:
                 result[key] = widget.value()
+        if result["mode"] == "sweep":
+            result["label"] = self.material_workspace.name()
+        result["condition"] = "finger" if result["mode"] == "phase" else "material"
         return result
+
+    def _valid_workspace(self):
+        try:
+            if self.mode.currentData() == "sweep":
+                self.material_workspace.validate()
+            return True
+        except ValueError as exc:
+            self._error(exc)
+            self.material_workspace.material_name.setFocus()
+            return False
+
+    def _finger_failure(self, error):
+        self.finger_workspace.show_error(error)
+        self._error(error)
+
+    def _finger_begin(self, request):
+        if not self._submit("finger_window", lambda: self.service.finger_begin_window(**request),
+                            self.finger_workspace.capture_result, "control", self._finger_failure):
+            self.finger_workspace.set_request_busy(False)
+
+    def _finger_action(self, request):
+        def done(snapshot):
+            self.finger_workspace.set_request_busy(False)
+            self.finger_workspace.apply_snapshot(snapshot)
+        if not self._submit("finger_action", lambda: self.service.finger_mark_action(**request), done,
+                            "control", self._finger_failure):
+            self.finger_workspace.set_request_busy(False)
+
+    def _finger_cancel(self):
+        self.finger_workspace.set_request_busy(True)
+        def done(snapshot):
+            self.finger_workspace.set_request_busy(False)
+            self.finger_workspace.apply_snapshot(snapshot)
+        if not self._submit("finger_cancel", self.service.finger_cancel_window, done, failure=self._finger_failure):
+            self.finger_workspace.set_request_busy(False)
+
+    def _finger_analyze(self, request):
+        target_key = self.finger_workspace.run_key
+        # Bind the source before entering a background queue; a new run cannot retarget this request.
+        request = dict(request, key=target_key)
+        def done(analysis):
+            if self.finger_workspace.run_key == target_key:
+                self.finger_workspace.apply_analysis(analysis)
+            self._message(f"手指研究分析已保存：{analysis.get('export_path', '')}")
+        if not self._submit("finger_analysis", lambda: self.service.finger_analyze(**request), done,
+                            failure=self._finger_failure):
+            self.finger_workspace.show_error("后台队列忙，请稍后重新分析。")
+
+    def _finger_current(self):
+        self.finger_workspace.use_current()
+        self.tabs.setTabEnabled(self.finger_tab, True)
+        self.tabs.setCurrentIndex(self.finger_tab)
+        self._tick()
+
+    def _finger_load_history(self):
+        if not self.selected_details:
+            return
+        key = self.selected_details["key"]
+        if not key.startswith("phase_runs/"):
+            self._message("只有固定频率幅相记录可以标定手指距离。")
+            return
+        curve = self.selected_details.get("curve") or {}
+        generation = self._history_generation
+        self._message("正在读取手指研究记录…")
+        def done(payload):
+            if generation != self._history_generation:
+                return
+            self.finger_workspace.load_history(payload, curve)
+            self.tabs.setTabEnabled(self.finger_tab, True)
+            self.tabs.setCurrentIndex(self.finger_tab)
+            self._message(payload.get("message", "历史记录仅用于离线标注与分析，不启动硬件。"))
+        self._submit("finger_history", lambda: self.service.finger_load(key), done)
 
     def _message(self, text):
         self.notice.setText(str(text))
@@ -421,22 +610,50 @@ class MainWindow(QtWidgets.QMainWindow):
         self._submit("profiles", self.service.refresh_profiles, loaded)
 
     def preflight(self):
+        if not self._valid_workspace():
+            return
         config = self.config()
         self.check_button.setEnabled(False)
+        self.reset_button.setEnabled(False)
         def done(result):
             self.check_button.setEnabled(True)
+            self.reset_button.setEnabled(not self._parameter_reset_blocked())
             self._message("参数检查通过，未打开硬件。\n" + result.get("summary", ""))
         def failed(error):
             self.check_button.setEnabled(True)
+            self.reset_button.setEnabled(not self._parameter_reset_blocked())
             self._error(error)
         if not self._submit("preflight", lambda: self.service.preflight(config), done, "control", failed):
             self.check_button.setEnabled(True)
+            self.reset_button.setEnabled(not self._parameter_reset_blocked())
+
+    def _parameter_reset_blocked(self):
+        return (self._close_requested or self._start_pending
+                or bool(self.snapshot.get("preparing"))
+                or (self.snapshot.get("job") or {}).get("status") in BUSY
+                or "start" in self.runner.pending or "preflight" in self.runner.pending
+                or not self.config_container.isEnabled())
+
+    def reset_parameters(self):
+        """仅复位待采集表单；包含隐藏模式，避免留下无效的参数组合。"""
+        if self._parameter_reset_blocked():
+            self._message("实验启动、采集、停止保存或参数检查期间不能复位，请等待完成。")
+            return
+        for key, widget in self.fields.items():
+            if isinstance(widget, (QtWidgets.QSpinBox, QtWidgets.QDoubleSpinBox)):
+                widget.setValue(DEFAULTS[key])
+        self.confirm.setChecked(False)
+        self._message("两类实验的采集参数及共用高级参数已恢复默认值。设备、名称和手指标定记录保留；请重新检查参数并确认接线。")
 
     def start_experiment(self):
+        if not self._valid_workspace():
+            return
         if not self.confirm.isChecked():
             self._message("请先确认所选设备接线、线缆固定和初始状态。")
             return
         config = self.config()
+        if config["mode"] == "phase":
+            self.finger_workspace.use_current()
         self._start_pending = True
         self.return_live()
         self._set_active(True)
@@ -458,16 +675,22 @@ class MainWindow(QtWidgets.QMainWindow):
         self._submit("stop", self.service.stop, self._apply_status, "urgent")
 
     def mark(self, stage):
+        if self.finger_workspace._pending:
+            self._message("请先完成或取消当前稳定窗口，再标记其他动作。")
+            return
         settle, contact = self.settle.value(), self.contact.isChecked()
         self._submit("mark", lambda: self.service.mark(stage, settle, contact),
                      lambda value: self._message(f"已提交阶段：{stage}；过渡 {settle:g} 秒；接触报告：{'是' if contact else '否'}。"), "control")
 
     def _set_active(self, active):
+        comparison_work = self._comparison_busy or "comparison_export" in self.runner.pending
         self.config_container.setEnabled(not active and not self._close_requested)
-        self.start_button.setEnabled(not active and not self._close_requested)
+        self.reset_button.setEnabled(not active and not self._parameter_reset_blocked())
+        self.start_button.setEnabled(not active and not comparison_work and not self._close_requested)
         self.check_button.setEnabled(not active and "preflight" not in self.runner.pending and not self._close_requested)
         self.stop_button.setEnabled(active and not self._close_requested)
-        self.export_button.setEnabled(not active and self.selected_details is not None and "export" not in self.runner.pending)
+        self.export_button.setEnabled(not active and self.selected_details is not None and "export" not in self.runner.pending and not comparison_work)
+        self._update_comparison_controls(active)
 
     def _tick(self):
         if self._close_requested:
@@ -483,12 +706,18 @@ class MainWindow(QtWidgets.QMainWindow):
                 self._render_replay()
             self._replay_tick = now
         def poll():
-            return self.service.snapshot(), self.service.live_snapshot()
+            return self.service.snapshot(), self.service.live_snapshot(), (self.service.finger_snapshot() if hasattr(self.service, "finger_snapshot") else {})
         self.runner.submit("poll", poll, self._poll_done, self._error, "polling")
 
     def _poll_done(self, result):
-        snapshot, live = result
+        snapshot, live, *research = result
         self._apply_status(snapshot)
+        if research:
+            self.finger_workspace.apply_snapshot(research[0])
+            if self.finger_workspace._pending:
+                self.mark_group.setEnabled(False)
+        if self.finger_workspace.source_key is None:
+            self.finger_workspace.update_curve(live)
         if self.viewing_key is None and self.replay is None:
             if live.get("revision") != self._live_revision or live.get("revision") is None:
                 self._render_live(live)
@@ -513,7 +742,10 @@ class MainWindow(QtWidgets.QMainWindow):
         else:
             self.status_detail.setText("启动软件不会自动收发。")
         can_mark = active and status == "running" and job.get("config", {}).get("mode") == "phase" and bool(job.get("baseline"))
-        self.mark_group.setVisible(self.viewing_key is None and self.replay is None)
+        self.finger_workspace.set_acquisition(active, can_mark and not self._close_requested)
+        self.workflow_shortcut.setVisible(self.mode.currentData() == "phase")
+        self.current_result_button.setEnabled(not active and bool(job.get("output")))
+        self.mark_group.setVisible(self.mode.currentData() == "phase" and self.viewing_key is None and self.replay is None)
         self.mark_group.setEnabled(can_mark and self.viewing_key is None and self.replay is None)
         events = self.snapshot.get("events") or []
         if events:
@@ -532,6 +764,8 @@ class MainWindow(QtWidgets.QMainWindow):
             self._render_replay()
 
     def _render_live(self, live, force_preview=False):
+        if not live.get("mode"):
+            live = dict(live, mode=self.mode.currentData())
         self.live_plots.update_snapshot(live)
         points = live.get("points") or []
         if live.get("mode") == "phase" and points:
@@ -542,9 +776,9 @@ class MainWindow(QtWidgets.QMainWindow):
         elif points:
             self.metrics.setText(f"已测 {len(points)} 点     当前第 {points[-1].get('repeat', '—')} 轮     频点 {points[-1].get('point', '—')}")
         else:
-            self.metrics.setText("等待真实数据；连续幅相需先建立静止参考。")
+            self.metrics.setText("等待本次材料扫频结果；每个真实测量点完成后显示。" if live.get("mode") == "sweep" else "等待真实数据；连续幅相需先建立静止参考。")
         now = time.monotonic()
-        if self.diagnostic_toggle.isChecked() and (force_preview or now-self._last_preview >= self.service.settings.preview_interval_ms/1000):
+        if force_preview or (self.diagnostic_toggle.isChecked() and now-self._last_preview >= self.service.settings.preview_interval_ms/1000):
             preview = live.get("preview")
             self.preview_plots.update_preview(preview)
             if preview:
@@ -567,37 +801,290 @@ class MainWindow(QtWidgets.QMainWindow):
         self.view_banner.setText("当前实验 · 实时数据")
         self.tabs.setCurrentIndex(0)
 
-    def refresh_history(self):
+    def refresh_history(self, select_key=None):
         def loaded(rows):
-            selected = self.selected_details.get("key") if self.selected_details else None
-            self.history_rows = rows
-            self.history_table.blockSignals(True)
-            self.history_table.setRowCount(len(rows))
-            selected_row = None
-            for index, row in enumerate(rows):
-                values = [row.get("started_utc", ""), row.get("label", ""), {"phase": "连续幅相", "sweep": "扫频", "teacher": "老师 GUI"}.get(row.get("mode"), "未知"), STATUS.get(row.get("status"), row.get("status", "")), row.get("sensor", "")]
-                for column, value in enumerate(values):
-                    item = QtWidgets.QTableWidgetItem(str(value))
-                    item.setToolTip(row["key"])
-                    self.history_table.setItem(index, column, item)
-                if row["key"] == selected:
-                    selected_row = index
-            if selected_row is not None:
-                self.history_table.selectRow(selected_row)
-            self.history_table.blockSignals(False)
+            self._history_all_rows = rows
+            self._render_history_rows(select_key if isinstance(select_key, str) else self._selected_history_key)
+            if isinstance(select_key, str) and self.history_table.currentRow() >= 0:
+                self._select_history()
         self._submit("history", self.service.history, loaded)
+
+    @staticmethod
+    def _history_category(row):
+        return row.get("category") or {"sweep": "material_sweep", "phase": "phase_history", "teacher": "teacher_sweep"}.get(row.get("mode"), "")
+
+    @staticmethod
+    def _local_time(value):
+        try:
+            parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+            if parsed.tzinfo is None:
+                parsed = parsed.replace(tzinfo=timezone.utc)
+            return parsed.astimezone().strftime("%Y-%m-%d %H:%M:%S %Z")
+        except (ValueError, TypeError):
+            return str(value or "—")
+
+    def _filter_history(self, *_):
+        self._render_history_rows(self._selected_history_key)
+
+    def _render_history_rows(self, selected=None):
+        category, status = self.history_type.currentData(), self.history_status.currentData()
+        query = self.history_search.text().strip().casefold()
+        self.history_rows = [row for row in self._history_all_rows
+                             if (not category or self._history_category(row) == category)
+                             and (not status or row.get("status") == status)
+                             and (not query or query in " ".join(str(row.get(field, "")) for field in ("label", "sensor", "key")).casefold())]
+        visible = {row["key"] for row in self.history_rows}
+        removed = self.comparison_keys - visible
+        if removed:
+            self.comparison_keys.intersection_update(visible)
+            self._comparison_generation += 1
+            self._message(f"筛选或刷新后已清除 {len(removed)} 条不可见记录的勾选；比较仅使用当前可见的勾选项。")
+        self.history_table.blockSignals(True)
+        self.history_table.clearSelection()
+        self.history_table.setCurrentItem(None)
+        self.history_table.setRowCount(len(self.history_rows))
+        selected_row = None
+        for index, row in enumerate(self.history_rows):
+            checked = QtWidgets.QTableWidgetItem()
+            checked.setFlags(QtCore.Qt.ItemFlag.ItemIsEnabled | QtCore.Qt.ItemFlag.ItemIsUserCheckable | QtCore.Qt.ItemFlag.ItemIsSelectable)
+            checked.setCheckState(QtCore.Qt.CheckState.Checked if row["key"] in self.comparison_keys else QtCore.Qt.CheckState.Unchecked)
+            checked.setData(QtCore.Qt.ItemDataRole.UserRole, row["key"])
+            checked.setToolTip("勾选 2–8 条同类实验进行只读比较；高亮一行仍可查看详情。")
+            self.history_table.setItem(index, 0, checked)
+            values = [self._local_time(row.get("started_utc")), row.get("label", ""), CATEGORIES.get(self._history_category(row), "未知"),
+                      STATUS.get(row.get("status"), row.get("status", "")), row.get("sensor", "")]
+            for column, value in enumerate(values, 1):
+                item = QtWidgets.QTableWidgetItem(str(value))
+                item.setData(QtCore.Qt.ItemDataRole.UserRole, row["key"])
+                item.setToolTip(f"{row['key']}\n原始 UTC：{row.get('started_utc', '未知')}")
+                self.history_table.setItem(index, column, item)
+            if row["key"] == selected:
+                selected_row = index
+        if selected_row is not None:
+            self.history_table.selectRow(selected_row)
+        self.history_table.blockSignals(False)
+        if selected and selected_row is None:
+            self._clear_history_details()
+        self._update_comparison_controls()
+
+    def _clear_history_details(self):
+        self._history_generation += 1
+        self._selected_history_key = None
+        self.selected_details = None
+        self._history_buttons(False)
+        self.metadata.clear()
+        self.file_list.clear()
+        if self.viewing_key is not None:
+            self.viewing_key = None
+            self.replay_running = False
+            self.replay = None
+            self.replay_controls.hide()
+            self.replay_note.hide()
+            self.live_plots.clear()
+            self.preview_plots.update_preview(None)
+            self._live_revision = None
+            self.view_banner.setText("当前实验 · 实时数据")
+
+    def _comparison_blocked(self):
+        return ((self.snapshot.get("job") or {}).get("status") in BUSY or self._start_pending
+                or bool(self.snapshot.get("preparing")) or self._close_requested
+                or "export" in self.runner.pending or "comparison_export" in self.runner.pending
+                or "finger_analysis" in self.runner.pending)
+
+    def _update_comparison_controls(self, active=None):
+        if not hasattr(self, "compare_button"):
+            return
+        blocked = self._comparison_blocked() or bool(active)
+        self.comparison_count.setText(f"已勾选 {len(self.comparison_keys)} / 8 条 · 同类至少 2 条")
+        self.compare_button.setEnabled(2 <= len(self.comparison_keys) <= 8 and not blocked and not self._comparison_busy)
+        self.comparison_clear.setEnabled(bool(self.comparison_keys) and not blocked)
+        self.history_table.blockSignals(True)
+        for row in range(self.history_table.rowCount()):
+            item = self.history_table.item(row, 0)
+            if item:
+                flags = item.flags()
+                item.setFlags(flags & ~QtCore.Qt.ItemFlag.ItemIsUserCheckable if blocked else flags | QtCore.Qt.ItemFlag.ItemIsUserCheckable)
+        self.history_table.blockSignals(False)
+        if self.comparison_dialog is not None and not self.comparison_dialog.is_closed:
+            self.comparison_dialog.set_busy(self._comparison_busy or "comparison_export" in self.runner.pending, blocked=blocked)
+
+    def _comparison_item_changed(self, item):
+        if item.column() != 0:
+            return
+        key = item.data(QtCore.Qt.ItemDataRole.UserRole)
+        checked = item.checkState() == QtCore.Qt.CheckState.Checked
+        rows = {row["key"]: row for row in self.history_rows}
+        error = ""
+        if self._comparison_blocked():
+            error = "采集或导出处理中，暂不能变更比较勾选。"
+        elif checked:
+            category = self._history_category(rows.get(key, {}))
+            if category == "teacher_sweep":
+                error = "老师原版记录的数据格式不同，暂不支持跨记录比较；仍可查看、分析与单条打包。"
+            elif category not in CATEGORIES:
+                error = "此记录类型未知，不能加入比较。"
+            elif len(self.comparison_keys) >= 8 and key not in self.comparison_keys:
+                error = "一次最多比较 8 条实验，请先取消一条勾选。"
+            elif any(self._history_category(rows.get(selected, {})) != category for selected in self.comparison_keys):
+                error = "请勾选同一种实验类型；切换类型前可先清空勾选。"
+        if error:
+            self.history_table.blockSignals(True)
+            item.setCheckState(QtCore.Qt.CheckState.Checked if key in self.comparison_keys else QtCore.Qt.CheckState.Unchecked)
+            self.history_table.blockSignals(False)
+            self._message(error)
+            return
+        if checked:
+            self.comparison_keys.add(key)
+        else:
+            self.comparison_keys.discard(key)
+        self._comparison_generation += 1
+        self._update_comparison_controls()
+
+    def clear_comparison_selection(self):
+        if self._comparison_blocked():
+            return
+        self.comparison_keys.clear()
+        self._comparison_generation += 1
+        self._render_history_rows(self._selected_history_key)
+
+    def compare_selected(self):
+        if self._comparison_blocked() or self._comparison_busy:
+            self._message("请等待采集、分析或导出结束，再发起比较。")
+            return
+        keys = [row["key"] for row in self.history_rows if row["key"] in self.comparison_keys]
+        if not 2 <= len(keys) <= 8:
+            self._message("请先勾选 2–8 条同类实验。")
+            return
+        self._request_comparison(keys)
+
+    def _request_comparison(self, keys, reference_key=None, dialog=None):
+        if self._comparison_blocked() or self._comparison_busy:
+            return
+        self._comparison_generation += 1
+        generation = self._comparison_generation
+        self._comparison_busy = True
+        if dialog is not None:
+            dialog.set_busy(True, "正在重新计算参考实验…")
+        self._set_active(False)
+        self._message("正在后台读取所选实验并比较参数与结果…")
+        def completed(report):
+            self._comparison_busy = False
+            if generation != self._comparison_generation or self._close_requested or (dialog is not None and dialog.is_closed):
+                if dialog is not None and not dialog.is_closed and dialog.report:
+                    dialog.reference.blockSignals(True)
+                    dialog.reference.setCurrentIndex(dialog.reference.findData(dialog.report.get("reference_key")))
+                    dialog.reference.blockSignals(False)
+                    dialog.status.setText("选择已变更，保留上一次完整比较结果。")
+                self._apply_status(self.snapshot)
+                return
+            target = dialog
+            if target is None:
+                if self.comparison_dialog is not None and not self.comparison_dialog.is_closed:
+                    self.comparison_dialog.close()
+                target = ComparisonDialog(self)
+                self.comparison_dialog = target
+                target.reference_requested.connect(lambda key: self._request_comparison(list(target.report["keys"]), key, target))
+                target.export_requested.connect(lambda: self._export_comparison(target))
+                target.closed.connect(lambda: self._comparison_closed(target))
+            target.apply_report(report)
+            target.show()
+            target.raise_()
+            self._message("比较已完成；原始实验记录未修改。")
+            self._apply_status(self.snapshot)
+        def failed(error):
+            self._comparison_busy = False
+            if dialog is not None and not dialog.is_closed:
+                # Even an obsolete failed request must not leave its uncomputed
+                # reference selected above a previous report.
+                dialog.reference.blockSignals(True)
+                dialog.reference.setCurrentIndex(dialog.reference.findData(dialog.report.get("reference_key")))
+                dialog.reference.blockSignals(False)
+            if generation == self._comparison_generation:
+                if dialog is not None and not dialog.is_closed:
+                    dialog.show_error(error)
+                self._error(error)
+            self._apply_status(self.snapshot)
+        if not self._submit("comparison", lambda: self.service.compare_runs(keys, reference_key=reference_key), completed, failure=failed):
+            self._comparison_busy = False
+            self._apply_status(self.snapshot)
+
+    def _comparison_closed(self, dialog):
+        if self.comparison_dialog is dialog:
+            self.comparison_dialog = None
+        self._comparison_generation += 1
+
+    def _export_comparison(self, dialog):
+        if self._comparison_blocked() or self._comparison_busy or dialog.is_closed or not dialog.report:
+            return
+        report = dialog.report
+        destination, _ = QtWidgets.QFileDialog.getSaveFileName(
+            dialog, "保存实验比较压缩包", str(Path.home() / "Downloads" / "sspp_comparison.zip"), "ZIP 压缩包 (*.zip)")
+        if not destination:
+            return
+        if not destination.lower().endswith(".zip"):
+            destination += ".zip"
+        dialog.set_busy(True, "正在生成比较图表并打包来源、参数与结果…")
+        def done(result):
+            message = f"比较包已保存：{result['path']}\n共 {result.get('count', '—')} 个文件。"
+            if result.get("warnings"):
+                message += "\n" + "\n".join(str(item) for item in result["warnings"])
+            if not dialog.is_closed:
+                dialog.status.setText(message)
+            self._message(message)
+            self._apply_status(self.snapshot)
+        def failed(error):
+            if not dialog.is_closed:
+                dialog.show_error(error)
+            self._error(error)
+            self._apply_status(self.snapshot)
+        if self._submit("comparison_export", lambda: self.service.export_comparison(report, destination), done, failure=failed):
+            self._apply_status(self.snapshot)
+        else:
+            self._update_comparison_controls()
+
+    def _open_current_result(self):
+        output = (self.snapshot.get("job") or {}).get("output")
+        if not output:
+            return
+        path = Path(output)
+        if path.is_absolute():
+            try:
+                key = str(path.relative_to(Path(self.service.settings.root) / "Data"))
+            except ValueError:
+                return
+        else:
+            key = str(path).removeprefix("Data/")
+        self.tabs.setCurrentIndex(1)
+        if not any(row["key"] == key for row in self.history_rows):
+            for widget in (self.history_type, self.history_status, self.history_search):
+                widget.blockSignals(True)
+            self.history_type.setCurrentIndex(0)
+            self.history_status.setCurrentIndex(0)
+            self.history_search.clear()
+            for widget in (self.history_type, self.history_status, self.history_search):
+                widget.blockSignals(False)
+            self._render_history_rows(self._selected_history_key)
+        for index, row in enumerate(self.history_rows):
+            if row["key"] == key:
+                self.history_table.selectRow(index)
+                return
+        self.refresh_history(select_key=key)
 
     def _history_buttons(self, enabled):
         for widget in (self.view_history_button, self.analyze_button, self.export_button, self.open_run_button, self.replay_button):
             widget.setEnabled(enabled)
         self.pause_button.setEnabled(False)
         self.replay_slider.setEnabled(False)
+        if hasattr(self, "finger_history_button"):
+            self.finger_history_button.setEnabled(enabled and bool(self.selected_details) and self.selected_details["key"].startswith("phase_runs/"))
 
     def _select_history(self):
         row = self.history_table.currentRow()
-        if not 0 <= row < len(self.history_rows):
+        item = self.history_table.item(row, 0) if row >= 0 else None
+        if item is None:
             return
-        key = self.history_rows[row]["key"]
+        key = item.data(QtCore.Qt.ItemDataRole.UserRole)
+        self._selected_history_key = key
         self._history_generation += 1
         generation = self._history_generation
         self.replay_running = False
@@ -633,7 +1120,10 @@ class MainWindow(QtWidgets.QMainWindow):
             return
         self.analysis_title.setText(f"正在读取 {key} 的真实记录…")
         self.tabs.setCurrentIndex(2)
+        generation = self._history_generation
         def loaded(model):
+            if generation != self._history_generation:
+                return
             self.diagnostic_model = model
             self.analysis_title.setText(f"{key} · {model.get('chart_count', 0)} 张诊断图")
             self.quality_facts.setText("    |    ".join(f"{fact['name']}：{fact['value']}" for fact in model.get("facts", [])))
@@ -667,6 +1157,36 @@ class MainWindow(QtWidgets.QMainWindow):
             self._error(error)
             self._apply_status(self.snapshot)
         self._submit("export", lambda: self.service.export_diagnostics(key), done, failure=failed)
+
+    def export_bundle(self):
+        if not self.selected_details:
+            return
+        job = self.snapshot.get("job") or {}
+        if job.get("status") in BUSY or self._start_pending or self.snapshot.get("preparing"):
+            self._message("请先停止收发并完成保存，再打包导出。")
+            return
+        key = self.selected_details["key"]
+        destination, _ = QtWidgets.QFileDialog.getSaveFileName(
+            self, "保存实验压缩包", str(Path.home() / "Downloads" / (key.replace("/", "_") + ".zip")),
+            "ZIP 压缩包 (*.zip)")
+        if not destination:
+            return
+        if not destination.lower().endswith(".zip"):
+            destination += ".zip"
+        include_raw = self.include_raw.isChecked()
+        self.export_button.setEnabled(False)
+        self._message("正在生成图表并打包参数、结果与分析文件…")
+        def done(result):
+            warnings = "\n".join(str(item) for item in result.get("warnings", []))
+            self._message(f"实验包已保存：{result['path']}\n共 {result.get('count', '—')} 个文件。" + (f"\n{warnings}" if warnings else ""))
+            self._apply_status(self.snapshot)
+        def failed(error):
+            self._error(error)
+            self._apply_status(self.snapshot)
+        if not self._submit("export", lambda: self.service.export_bundle(key, destination, include_raw=include_raw), done, failure=failed):
+            self._apply_status(self.snapshot)
+        else:
+            self._update_comparison_controls()
 
     def open_run(self):
         if self.selected_details:
@@ -755,6 +1275,10 @@ class MainWindow(QtWidgets.QMainWindow):
     def closeEvent(self, event):
         if self._shutdown_done and not self.runner.pending:
             self.timer.stop()
+            self._close_timer.stop()
+            if self.comparison_dialog is not None and not self.comparison_dialog.is_closed:
+                self.comparison_dialog.close()
+            close_plot_widgets(self)
             event.accept()
             return
         event.ignore()
@@ -781,7 +1305,7 @@ class MainWindow(QtWidgets.QMainWindow):
         if not self._shutdown_submitted:
             def done(value):
                 self._shutdown_done = True
-                QtCore.QTimer.singleShot(0, self._finish_close)
+                self._close_timer.start(0)
             def failed(error):
                 self._close_requested = False
                 self._shutdown_submitted = False

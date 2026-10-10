@@ -4,6 +4,7 @@ from __future__ import annotations
 import numpy as np
 from PySide6 import QtCore, QtWidgets
 import pyqtgraph as pg
+from .qt_cleanup import close_plot_widgets
 
 COLORS = ["#087f85", "#c17b26", "#7771bb", "#b5567a", "#408767", "#487da3"]
 pg.setConfigOptions(antialias=False, background="#ffffff", foreground="#344655")
@@ -60,6 +61,10 @@ class LivePlots(QtWidgets.QWidget):
         self.amp.enableAutoRange(x=checked, y=checked)
         self.phase.enableAutoRange(x=checked, y=checked)
 
+    def closeEvent(self, event):
+        close_plot_widgets(self)
+        super().closeEvent(event)
+
     def _reset_range(self):
         self.follow.setChecked(True)
         self._auto_range(True)
@@ -87,7 +92,7 @@ class LivePlots(QtWidgets.QWidget):
             x = numbers([row.get("x") for row in points])
             self.amplitude_line.setData(x, numbers([row.get("amplitude") for row in points]), connect="finite")
             self.phase_line.setData(x, numbers([row.get("phase") for row in points]), connect="finite")
-            self.hint.setText("相对本次静止参考；不用于跨会话绝对相位或毫米位移。" +
+            self.hint.setText("相对本次静止参考；毫米估算需同次标定与独立验证。" +
                               (f" 显示传输缺口 {snapshot['display_gaps']} 次，断线保留。" if snapshot.get("display_gaps") else ""))
         elif mode == "sweep":
             groups = {}
@@ -136,6 +141,10 @@ class PreviewPlots(QtWidgets.QWidget):
         self.iq_line.setData(i, q)
         self.spectrum_line.setData(numbers(preview.get("frequency_khz", [])), numbers(preview.get("spectrum_db", [])), connect="finite")
 
+    def closeEvent(self, event):
+        close_plot_widgets(self)
+        super().closeEvent(event)
+
 
 class DiagnosticPlot(QtWidgets.QWidget):
     """支持现有全部诊断类型：线、散点、误差棒、柱、热图和阶段。"""
@@ -154,6 +163,10 @@ class DiagnosticPlot(QtWidgets.QWidget):
         layout.addWidget(self.plot, 1)
         layout.addWidget(self.note)
         layout.addWidget(self.readout)
+
+    def closeEvent(self, event):
+        close_plot_widgets(self)
+        super().closeEvent(event)
 
     def _readout(self, position):
         if not self.plot.sceneBoundingRect().contains(position):

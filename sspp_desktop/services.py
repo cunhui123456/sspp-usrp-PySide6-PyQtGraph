@@ -10,15 +10,19 @@ from pathlib import Path
 
 from sspp_lab.controller import LabController, read_json, write_json
 from .config import Settings
+from .research import FingerResearchMixin
+from .bundle import BundleExportMixin
+from .comparison_service import ComparisonMixin
 
 
-class DesktopService(LabController):
+class DesktopService(FingerResearchMixin, BundleExportMixin, ComparisonMixin, LabController):
     def __init__(self, settings=None):
         self.settings = settings or Settings.from_env()
         super().__init__(self.settings.root)
         self._reset_realtime()
 
     def _reset_realtime(self):
+        self._research_reset()
         self.live_points = deque(maxlen=self.settings.max_display_points)
         self.preview = None
         self.revision = 0
@@ -62,10 +66,13 @@ class DesktopService(LabController):
     def _handle_event(self, event, job):
         """由收集线程调用；不接触 Qt，不读取正在增长的数据文件。"""
         kind = event.get("event")
+        if kind != "TRACE":
+            self._research_event(event, job)
         if kind == "TRACE":
             seq = int(event.get("seq", self.trace_seq + 1))
             if seq <= self.trace_seq:
                 return
+            self._research_event(event, job)
             points = event.get("points", [])
             if points and seq != self.trace_seq + 1:
                 self.display_gaps += seq - self.trace_seq - 1
@@ -111,12 +118,15 @@ class DesktopService(LabController):
         output = self.root / job["output"]
         if not output.is_dir():
             return
+        self._save_finger_context(job, output)
         names = [
             "sspp_lab/controller.py", "sspp_lab/realtime.py",
             "sspp_desktop/services.py", "sspp_desktop/window.py", "sspp_desktop/plots.py",
+            "sspp_desktop/research.py",
         ]
         write_json(output / "desktop_context.json", {
-            "schema_version": 1, "source": "local_desktop_manual_experiment",
+            "schema_version": 2, "source": "local_desktop_manual_experiment",
+            "experiment": "material_sweep" if job["config"]["mode"] == "sweep" else "finger_displacement",
             "job_id": job["id"], "condition": job["config"]["condition"],
             "sensor": job["config"]["sensor"], "parameters": job["config"],
             "initial_setup_user_confirmed": job["config"]["setup_confirmed"],

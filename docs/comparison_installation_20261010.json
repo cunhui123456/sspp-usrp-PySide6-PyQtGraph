@@ -1,0 +1,102 @@
+{
+  "installed_utc": "2026-10-10T04:21:52.004101+00:00",
+  "files_written": 18,
+  "backup_relative_path": ".cache/comparison_backup_20261010T042151Z",
+  "protected_files": 897,
+  "protected_bytes": 1242426107,
+  "protected_hashes_verified": true,
+  "hardware_opened": false,
+  "desktop_restart_required": true,
+  "installed_files": [
+    {
+      "path": "CONTEXT_RULES.md",
+      "sha256": "e39f45ca6fb027310483be0663f89c66dfd84ad0b33eb9c4bb6e53af6cae702f",
+      "bytes": 3426
+    },
+    {
+      "path": "README.md",
+      "sha256": "07df65e010a130b15357a39cc4662773ff77d25f4ce50e08c2465c674d139d62",
+      "bytes": 8186
+    },
+    {
+      "path": "docs/acceptance_desktop.md",
+      "sha256": "15117f4d95da8715b7a180a77b4dba0255d919f9fe8da6fddde7e54a25c6d456",
+      "bytes": 11137
+    },
+    {
+      "path": "docs/comparison_validation_20261010.json",
+      "sha256": "454087a8424fbaf708a03ba59d481802c01024862271dd5df12564b6d39ea45d",
+      "bytes": 3081
+    },
+    {
+      "path": "docs/design.md",
+      "sha256": "c3e7c6d490a623ed8015156e9f94581c66e24e95cc648c4b85c15af6975c006e",
+      "bytes": 58450
+    },
+    {
+      "path": "docs/experiment_workflows.md",
+      "sha256": "d63acdec6c5afd281585e287f2489feca993dd370567fda7b6be328ea92a90d7",
+      "bytes": 15004
+    },
+    {
+      "path": "docs/results_comparison.md",
+      "sha256": "8f3b1ec5b5a9b429f6f8d9294819d8a0897c9b4599304beb46aa726f8db719f5",
+      "bytes": 9813
+    },
+    {
+      "path": "sspp_desktop/comparison_export.py",
+      "sha256": "9ed96fdc2ee1de9e8185504ec8d3487df4bda12da7f6d6bbaaeb51baeb6e2f44",
+      "bytes": 3212
+    },
+    {
+      "path": "sspp_desktop/comparison_service.py",
+      "sha256": "30aa27b9f5cbd2d2145701181b9d5ac51630b61742fe50dfd37a316355188daa",
+      "bytes": 13206
+    },
+    {
+      "path": "sspp_desktop/comparison_widget.py",
+      "sha256": "d1cfd5ed47f3f1d1cb4f8b91f2a1ee5fa3ddc37effba462b9fd69fbcb761d2ae",
+      "bytes": 12799
+    },
+    {
+      "path": "sspp_desktop/services.py",
+      "sha256": "71a0f6806c3fde128766b45a3d5cf5f5e91f95c0a8ebe8e2265503fa791eec59",
+      "bytes": 6034
+    },
+    {
+      "path": "sspp_desktop/window.py",
+      "sha256": "3c4f2af36f185dd38fe954bfecf3744484fe73939a4339082100f7ced22e5a7c",
+      "bytes": 67843
+    },
+    {
+      "path": "sspp_experiments/comparison.py",
+      "sha256": "5f47e1ef6555495d17f71ff2b345bc97fe906826043e9dcae9d4cf6d095011f1",
+      "bytes": 12382
+    },
+    {
+      "path": "sspp_experiments/finger_displacement/comparison.py",
+      "sha256": "27d0a5a2aafbd86ac63684e0ceb095fc9eecf881f2732d1aeb819a8b79c25792",
+      "bytes": 9073
+    },
+    {
+      "path": "sspp_experiments/material_sweep/comparison.py",
+      "sha256": "c8ec47ea66e4b9d03d4c00d6bbc260a1b6c3903686792d58e36e5adcc4d8accf",
+      "bytes": 11649
+    },
+    {
+      "path": "tests/test_comparison_domain.py",
+      "sha256": "99780be98dfe18d781d9900a0c7c58bf0e12af4beb543b321a5edbbd08af18c2",
+      "bytes": 14851
+    },
+    {
+      "path": "tests/test_comparison_service.py",
+      "sha256": "49136825cc9475c2854bc4f34ebd73eaba4436ad978324026a7ded10550a2cbd",
+      "bytes": 7357
+    },
+    {
+      "path": "tests/test_comparison_ui.py",
+      "sha256": "80dd18795eb5d8478a05a40602ffdc5447c2170260c632864879bdfa7fd1dcde",
+      "bytes": 15109
+    }
+  ]
+}

@@ -1,0 +1,273 @@
+{
+  "installed_utc": "2026-10-10T03:25:33.716231+00:00",
+  "files_written": 42,
+  "retired_launchers": [
+    "run_baseline.command",
+    "run_teacher.command",
+    "historical/web_20261009/run_web.command"
+  ],
+  "active_launchers": [
+    "run_desktop.command"
+  ],
+  "protected_files": 762,
+  "protected_bytes": 1234893065,
+  "protected_hashes_verified": true,
+  "root_env_unchanged": true,
+  "original_project_modified": false,
+  "hardware_opened": false,
+  "backup_relative_path": ".cache/research_redesign_backup_20261010T032533Z",
+  "installed_files": [
+    {
+      "path": "sspp_desktop/bundle.py",
+      "sha256": "43568004a1ec3f696c3d021f0c12559f70e7b5717b9377ba822bd1036b24536a",
+      "bytes": 13113,
+      "existed": false
+    },
+    {
+      "path": "sspp_desktop/services.py",
+      "sha256": "bba74fff2288476fc7387587cfe472e0154245229d90fafcf2560ce30209baf2",
+      "bytes": 5969,
+      "existed": true
+    },
+    {
+      "path": "sspp_desktop/window.py",
+      "sha256": "4af69f0e2d00844dbace73e4bbbd44a8b5e1bb66fef195ca2e1043aa541f20b6",
+      "bytes": 52391,
+      "existed": true
+    },
+    {
+      "path": "sspp_desktop/research.py",
+      "sha256": "5ffe334a9dd852c864da05f63b501007533afe6d7de06d49c834199f07a53e7d",
+      "bytes": 20999,
+      "existed": false
+    },
+    {
+      "path": "sspp_desktop/research_export.py",
+      "sha256": "979a674817a041d683ee9535dd0b8d6798bbabf1a3ab8fcea17333cbf937c10a",
+      "bytes": 3012,
+      "existed": false
+    },
+    {
+      "path": "sspp_desktop/plots.py",
+      "sha256": "6574ae6dd62c7a39a1341fedd9502b99a1a8c53dd649b8191d9c741f6da636a5",
+      "bytes": 12922,
+      "existed": true
+    },
+    {
+      "path": "sspp_desktop/qt_cleanup.py",
+      "sha256": "9898e36e9bd52f1a163229c9430ce26a67f8ab8f58d6229b25b716c35222769d",
+      "bytes": 639,
+      "existed": false
+    },
+    {
+      "path": "sspp_desktop/experiments/__init__.py",
+      "sha256": "0317843e300900c35fae7464b2a124b057da47f001a90cd8d7fb68bb12cf15d3",
+      "bytes": 52,
+      "existed": false
+    },
+    {
+      "path": "sspp_desktop/experiments/material_sweep.py",
+      "sha256": "324fc70c0d86d6215e7dd258f98224d7d1546d1e2846dd567c58fdf1aa5d77e8",
+      "bytes": 1176,
+      "existed": false
+    },
+    {
+      "path": "sspp_desktop/experiments/finger_displacement.py",
+      "sha256": "d6d104861380e39ec5995d9d03fb1863d89b5310cfd37d69df0d1bf93ba7fda5",
+      "bytes": 33098,
+      "existed": false
+    },
+    {
+      "path": "sspp_experiments/__init__.py",
+      "sha256": "5c690a22c1126b989776e9d71883814961c847fd7a93cc5f1c16e230caeb48a2",
+      "bytes": 89,
+      "existed": false
+    },
+    {
+      "path": "sspp_experiments/material_sweep/__init__.py",
+      "sha256": "8666170adb8a52ca7098b13c3a2cd853a020ecaa9dcf8c17bbce1975e9883c8e",
+      "bytes": 67,
+      "existed": false
+    },
+    {
+      "path": "sspp_experiments/material_sweep/logic.py",
+      "sha256": "c70f2bee802bf0a2fa248cd1fc2ce76b9f7adb22dc20b1d7e3e0027093206f84",
+      "bytes": 20540,
+      "existed": false
+    },
+    {
+      "path": "sspp_experiments/material_sweep/acquisition.py",
+      "sha256": "9e3ebf0946fe7275d31ed35363774f1b2489f5802178e0d788e6f498ca919ef6",
+      "bytes": 22746,
+      "existed": false
+    },
+    {
+      "path": "sspp_experiments/finger_displacement/analysis.py",
+      "sha256": "c2b477049903bb8bdffbff7a82155348ffde483f789c005225e520e3f490a35e",
+      "bytes": 23183,
+      "existed": false
+    },
+    {
+      "path": "sspp_experiments/finger_displacement/__init__.py",
+      "sha256": "f116661ec66599058d46e944111e31a661f1b7a67b98833a46977c933d6057ce",
+      "bytes": 206,
+      "existed": false
+    },
+    {
+      "path": "sspp_experiments/finger_displacement/acquisition.py",
+      "sha256": "8a752d4f9beae3350355f6d3f5abc5ff24a8a56e82cb7e7c02ca2dd52a48ed07",
+      "bytes": 24288,
+      "existed": false
+    },
+    {
+      "path": "sspp_lab/sweep_logic.py",
+      "sha256": "693128f6bcb1069eb7805ed8d361fa9e60265614ae0d5ca7fbee746307ce7b85",
+      "bytes": 282,
+      "existed": true
+    },
+    {
+      "path": "sspp_lab/acquire_sweep.py",
+      "sha256": "7dcf84f653e2e29cc693627c0648ed475a45d3c0a3dccd0a9c3e928d7e8c5067",
+      "bytes": 288,
+      "existed": true
+    },
+    {
+      "path": "sspp_lab/acquire_phase.py",
+      "sha256": "a92c7d87a1790fe733454f61c41cc7337e3d56e0a26cb7a803e72f30f88df2fc",
+      "bytes": 293,
+      "existed": true
+    },
+    {
+      "path": "tests/test_finger_domain.py",
+      "sha256": "1ce440f76035f41ee072caf8d17aa080bda995c720ffb4a3b955e17d41616d24",
+      "bytes": 13083,
+      "existed": false
+    },
+    {
+      "path": "tests/test_desktop_ui.py",
+      "sha256": "301003c7b35244c09087cfbfd054cb630f29204de2839814552eb2d0e20c478a",
+      "bytes": 11351,
+      "existed": true
+    },
+    {
+      "path": "tests/test_teacher_bundle.py",
+      "sha256": "841186d83b9d725a8f60d3066205c8cb6a71ef6ec28f5314dff6bcde50e974b1",
+      "bytes": 4686,
+      "existed": false
+    },
+    {
+      "path": "tests/test_qt_lifecycle.py",
+      "sha256": "69e73411cba6fe91123c684cb242464fcd7b1180833d2334c460a7dd4e5070e0",
+      "bytes": 2746,
+      "existed": false
+    },
+    {
+      "path": "tests/qt_test_cleanup.py",
+      "sha256": "00958d09835ace1386c5c3f046262928cf65a7901e332ddc6aa43de2f544779d",
+      "bytes": 823,
+      "existed": false
+    },
+    {
+      "path": "tests/test_research_ui.py",
+      "sha256": "19d44e1153b3a954a5e25b00b4acfa6b32e9a93d8d4dbfc5937fe5133b3cfc68",
+      "bytes": 12258,
+      "existed": false
+    },
+    {
+      "path": "tests/test_research_service.py",
+      "sha256": "625aa8bf15eb5539baa60886a05c935ed085868ec1035014babdb64e17620428",
+      "bytes": 13484,
+      "existed": false
+    },
+    {
+      "path": "docs/requirements.md",
+      "sha256": "9b47d9cf7d54884949f0747a7444564762b891e771f29bb0fb0885d81c4c4647",
+      "bytes": 5492,
+      "existed": true
+    },
+    {
+      "path": "docs/research_redesign_validation_20261010.json",
+      "sha256": "ea812a481aa5a648aca394ad3ad1adc8132752d45e6f0101c2b532ad4f41d26b",
+      "bytes": 2996,
+      "existed": false
+    },
+    {
+      "path": "docs/acceptance_desktop.md",
+      "sha256": "a95df6385371682978b82a00fdc2ab187c73b0b51801b6a3229e57eea4e5e847",
+      "bytes": 8990,
+      "existed": true
+    },
+    {
+      "path": "docs/design.md",
+      "sha256": "07f4fd9c1b7eb1c336f61971099ed78cd55741c6e8a16e9e691e085176266697",
+      "bytes": 52030,
+      "existed": true
+    },
+    {
+      "path": "docs/experiment_workflows.md",
+      "sha256": "7fe95d7e395ecc9f2969eef55e9e323d5abfef6b840637e7c98ee545e4b144bf",
+      "bytes": 13724,
+      "existed": false
+    },
+    {
+      "path": "historical/launchers_20261010/run_teacher.command.txt",
+      "sha256": "83413f2da6519991e343e32dcab0aee8f6e17edb722a426341d852cecbf6be9a",
+      "bytes": 428,
+      "existed": false
+    },
+    {
+      "path": "historical/launchers_20261010/README.md",
+      "sha256": "3abe909e1e04efa5143aebf0eaa77ea37e08fae5ac9b7e68aa7df84cdb850cfb",
+      "bytes": 230,
+      "existed": false
+    },
+    {
+      "path": "historical/launchers_20261010/run_web.command.txt",
+      "sha256": "2813a035e7e6f375ad3007d3fc656b3de53dbe1e17346fcb2886bc9c54416867",
+      "bytes": 125,
+      "existed": false
+    },
+    {
+      "path": "historical/launchers_20261010/run_baseline.command.txt",
+      "sha256": "74725a0d596427be10af00ca419fddf7f3ef58de9082ec0d36d02e6990df3af7",
+      "bytes": 457,
+      "existed": false
+    },
+    {
+      "path": "README.md",
+      "sha256": "e7764793fc14ec678e041ed68894a871bc886c527611a3ba93d99342c05fb249",
+      "bytes": 7204,
+      "existed": true
+    },
+    {
+      "path": "CONTEXT_RULES.md",
+      "sha256": "e3d47858946c61e57aeda986bfceba0b1e1a5770351a3b7548e4d9063d139f78",
+      "bytes": 2918,
+      "existed": true
+    },
+    {
+      "path": "pyproject.toml",
+      "sha256": "dbd99e4c46f74b450595579b8df886c21c61e485229921270f8233b084238e0f",
+      "bytes": 604,
+      "existed": true
+    },
+    {
+      "path": "run_local.py",
+      "sha256": "f696ba71b5fb308f75ffc1d95717b9adfb40d094b21ba5e4c91c2621a9599621",
+      "bytes": 195,
+      "existed": true
+    },
+    {
+      "path": "run_phase.py",
+      "sha256": "aae6a442b5c404081ae25d10b9dc4e5d4c6d9ac76552ebd833cc2d18924f9b97",
+      "bytes": 200,
+      "existed": true
+    },
+    {
+      "path": "run_teacher.py",
+      "sha256": "c34cef6292590f08bb5f268614548e1292c818c9c088f5e8ee242c513a20f5ff",
+      "bytes": 353,
+      "existed": true
+    }
+  ]
+}

@@ -13,6 +13,7 @@ from PySide6 import QtCore, QtWidgets
 from sspp_desktop.plots import DiagnosticPlot, LivePlots
 from sspp_desktop.window import MainWindow
 from sspp_desktop.workers import TaskRunner
+from qt_test_cleanup import dispose_closed_windows
 
 
 class FakeService:
@@ -67,6 +68,9 @@ class DesktopUiTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+
+    def tearDown(self):
+        dispose_closed_windows()
 
     def pump_until(self, predicate, timeout=3):
         until = time.monotonic() + timeout
@@ -140,6 +144,95 @@ class DesktopUiTests(unittest.TestCase):
             service.preflight_release.set()
             service.stop()
             window._apply_status(service.snapshot())
+            window.close()
+            self.pump_until(lambda: service.closed and not window.isVisible())
+
+    def test_parameter_reset_restores_both_modes_and_preserves_research_context(self):
+        from sspp_lab.controller import DEFAULTS, validate_request
+        service = FakeService()
+        window = MainWindow(service)
+        window.show()
+        window.timer.stop()
+        try:
+            self.pump_until(lambda: window.profile.count() == 1 and not window.runner.pending)
+            window.profile.addItem("另一测试设备", "teacher")
+            window.profile.setCurrentIndex(1)
+            window.fields["label"].setText("session_keep")
+            window.fields["sensor"].setText("sensor_keep")
+            window.material_workspace.material_name.setText("空瓶")
+            window.finger_workspace.initial_distance.setValue(25)
+            window.finger_workspace.tolerance.setValue(1.5)
+            window.finger_workspace.records = [{"id": "keep_annotation"}]
+            for mode in ("phase", "sweep"):
+                with self.subTest(mode=mode):
+                    window.mode.setCurrentIndex(window.mode.findData(mode))
+                    for widget in window.fields.values():
+                        if isinstance(widget, (QtWidgets.QSpinBox, QtWidgets.QDoubleSpinBox)):
+                            widget.setValue(widget.maximum())
+                    # 隐藏的单点/总时限也可能不合法，复位后须可通过完整配置校验。
+                    window.fields["max_seconds"].setValue(10)
+                    window.fields["point_timeout"].setValue(30)
+                    window.confirm.setChecked(True)
+                    window.reset_button.click()
+                    cfg = validate_request(window.config(), require_setup=False)
+                    for key, value in DEFAULTS.items():
+                        if isinstance(value, (int, float)) and not isinstance(value, bool):
+                            self.assertEqual(cfg[key], value)
+                    self.assertEqual(cfg["mode"], mode)
+                    self.assertEqual(cfg["profile"], "teacher")
+                    self.assertEqual(cfg["label"], "空瓶" if mode == "sweep" else "session_keep")
+                    self.assertEqual(cfg["sensor"], "sensor_keep")
+                    self.assertFalse(cfg["setup_confirmed"])
+                    self.assertEqual(window.finger_workspace.initial_distance.value(), 25)
+                    self.assertEqual(window.finger_workspace.tolerance.value(), 1.5)
+                    self.assertEqual(window.finger_workspace.records, [{"id": "keep_annotation"}])
+                    window.start_experiment()
+                    self.assertIsNone(service.started)  # 复位不授权启动，必须重新确认。
+        finally:
+            window.close()
+            self.pump_until(lambda: service.closed and not window.isVisible())
+
+    def test_parameter_reset_is_blocked_during_acquisition_and_pending_preflight(self):
+        service = FakeService()
+        window = MainWindow(service)
+        window.show()
+        window.timer.stop()
+        try:
+            self.pump_until(lambda: window.profile.count() == 1 and not window.runner.pending)
+            window.fields["carrier_ghz"].setValue(3.5)
+            window.confirm.setChecked(True)
+            for snapshot in ([{"job": {"status": status}} for status in
+                              ("starting", "running", "stopping", "saving")]
+                             + [{"preparing": True}]):
+                with self.subTest(snapshot=snapshot):
+                    window._apply_status(snapshot)
+                    self.assertFalse(window.reset_button.isEnabled())
+                    window.reset_parameters()  # 直接调用也不能绕过禁用按钮。
+                    self.assertEqual(window.fields["carrier_ghz"].value(), 3.5)
+                    self.assertTrue(window.confirm.isChecked())
+            window._apply_status({})
+            for flag in ("_start_pending", "_close_requested"):
+                setattr(window, flag, True)
+                window.reset_parameters()
+                self.assertEqual(window.fields["carrier_ghz"].value(), 3.5)
+                setattr(window, flag, False)
+            window.preflight()
+            self.assertFalse(window.reset_button.isEnabled())
+            window.reset_parameters()
+            self.assertEqual(window.fields["carrier_ghz"].value(), 3.5)
+            service.preflight_release.set()
+            self.pump_until(lambda: "preflight" not in window.runner.pending)
+            self.assertTrue(window.reset_button.isEnabled())
+            window.reset_button.click()
+            self.assertEqual(window.fields["carrier_ghz"].value(), 2.4)
+            self.assertFalse(window.confirm.isChecked())
+            self.assertIsNone(service.started)
+            self.assertFalse(service.stopped)
+        finally:
+            service.preflight_release.set()
+            window._close_requested = False
+            window._start_pending = False
+            window._apply_status({})
             window.close()
             self.pump_until(lambda: service.closed and not window.isVisible())
 

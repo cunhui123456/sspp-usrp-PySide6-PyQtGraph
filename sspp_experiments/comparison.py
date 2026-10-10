@@ -1,0 +1,217 @@
+"""只读、多实验记录对比入口；不导入采集器、UHD 或 Qt。"""
+from __future__ import annotations
+
+from datetime import datetime, timezone
+import hashlib
+import json
+import math
+from pathlib import Path
+
+COLORS = ["#087f85", "#d28b32", "#7474bd", "#be6687", "#4c9271", "#527fa2", "#936d47", "#935d78"]
+
+
+def finite(value):
+    return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
+
+
+def history_category(row, context=None):
+    """旧 phase 与明确登记的手指研究保持不同类别；旧 CLI sweep 仍属材料扫频。"""
+    context = context or {}
+    key, mode = row.get("key", ""), row.get("mode", "")
+    if key.startswith("teacher_runs/") or mode == "teacher":
+        return "teacher_sweep"
+    if key.startswith("runs/") or mode == "sweep":
+        return "material_sweep"
+    if key.startswith("phase_runs/") or mode == "phase":
+        return "finger_displacement" if context.get("experiment", row.get("experiment")) == "finger_displacement" else "phase_history"
+    return "unknown"
+
+
+def read_source(record, relative_path, required=True):
+    """解析与来源 SHA 使用同份 bytes，读中变化立即拒绝；仅限 run 内普通文件。"""
+    if relative_path in record["_contents"]:
+        return record["_contents"][relative_path]
+    relative = Path(relative_path)
+    if relative.is_absolute() or ".." in relative.parts:
+        raise ValueError("对比来源路径无效")
+    path = record["_path"] / relative
+    if path.is_symlink() or any(p.is_symlink() for p in path.parents if p.is_relative_to(record["_path"])):
+        raise ValueError("对比来源不允许符号链接")
+    if not path.is_file():
+        if required:
+            raise ValueError(f"记录 {record['key']} 缺少 {relative_path}")
+        return None
+    before = path.stat()
+    content = path.read_bytes()
+    after = path.stat()
+    if (before.st_size, before.st_mtime_ns, before.st_ino) != (after.st_size, after.st_mtime_ns, after.st_ino) or len(content) != before.st_size:
+        raise ValueError("来源文件正在改变，请等待采集与保存完成")
+    record["files"].append({"relative_path": relative.as_posix(), "sha256": hashlib.sha256(content).hexdigest(), "bytes": len(content)})
+    record["_contents"][relative_path] = content
+    return content
+
+
+def read_json_source(record, name, required=True):
+    content = read_source(record, name, required)
+    if content is None:
+        return {}
+    try:
+        value = json.loads(content)
+    except (UnicodeDecodeError, ValueError) as exc:
+        raise ValueError(f"来源 {name} 不是有效 JSON") from exc
+    if not isinstance(value, dict):
+        raise ValueError(f"来源 {name} 结构无效")
+    return value
+
+
+def chart(ident, title, xlabel, ylabel, series, note):
+    return {"id": ident, "title": title, "kind": "line", "xlabel": xlabel,
+            "ylabel": ylabel, "series": series, "note": note}
+
+
+def series(record, data, errors=None):
+    result = {"label": record["label"] + " · " + record["key"].split("/")[-1],
+              "color": record["color"], "data": data}
+    if errors is not None:
+        result["errors"] = errors
+    return result
+
+
+def table(columns, rows):
+    return {"columns": columns, "rows": rows}
+
+
+def _number(value):
+    return float(value) if finite(value) else None
+
+
+def _text(value):
+    return value if isinstance(value, str) and value.strip() else None
+
+
+def _parameters(record):
+    m, context = record["_manifest"], record["_context"]
+    actual, hardware = m.get("actual_sdr") or {}, m.get("actual_hardware") or {}
+    requested, sweep = m.get("requested_sdr") or {}, m.get("sweep") or {}
+    params = {"rx_rate_sps": _number(actual.get("rx_rate_actual")),
+              "tx_rate_sps": _number(actual.get("tx_rate_actual")),
+              "tx_gain_dB": _number(hardware.get("tx_gain")), "rx_gain_dB": _number(hardware.get("rx_gain")),
+              "tx_amplitude": _number(requested.get("amp", actual.get("amp"))),
+              "channel": _number(actual.get("channel")),
+              "tx_antenna": _text(hardware.get("tx_antenna")), "rx_antenna": _text(hardware.get("rx_antenna")),
+              "master_clock_rate_hz": _number(hardware.get("master_clock_rate")),
+              "sensor": _text(context.get("sensor"))}
+    if record["kind"] == "material_sweep":
+        for key in ("nfft", "verify_cycles", "measure_cycles", "verify_tolerance_hz", "switch_settle_time"):
+            params[key] = _number(sweep.get(key))
+        names = {"logic.py", "sweep_logic.py", "do_sweep.py"}
+        hashes = m.get("current_source_hashes") or m.get("source_hashes") or {}
+    else:
+        params.update(carrier_hz=_number(actual.get("freq")), tone_hz=_number(actual.get("tone")))
+        names = {"dsp.py", "phase_dsp.py"}
+        hashes = m.get("phase_source_hashes") or {}
+    profile = m.get("device_profile") or {}
+    record["_identity"] = _text(profile.get("serial"))
+    record["_fpga"] = _text(profile.get("fpga_sha256"))
+    selected = sorted(value for name, value in hashes.items() if Path(name).name in names and isinstance(value, str))
+    record["_algorithm"] = tuple(selected) if selected else None
+    return params
+
+
+def _relation(values, reference_index):
+    ref = values[reference_index]
+    status = "unknown" if any(v is None for v in values) else ("same" if all(v == ref for v in values) else "different")
+    safe = ["unknown" if v is None or ref is None else ("reference" if i == reference_index else ("same" if v == ref else "different")) for i, v in enumerate(values)]
+    return status, safe
+
+
+def compare_parameters(records, reference_index, report):
+    labels = {"rx_rate_sps": "实际 RX 采样率 S/s", "tx_rate_sps": "实际 TX 采样率 S/s",
+              "tx_gain_dB": "实际 TX 增益 dB", "rx_gain_dB": "实际 RX 增益 dB", "tx_amplitude": "数字 TX 幅值",
+              "channel": "通道", "tx_antenna": "实际 TX 天线选项", "rx_antenna": "实际 RX 天线选项",
+              "master_clock_rate_hz": "主时钟 Hz", "sensor": "人工传感器说明",
+              "nfft": "FFT 点数", "verify_cycles": "验证单音周期数", "measure_cycles": "测量单音周期数",
+              "verify_tolerance_hz": "峰频验证容差 Hz", "switch_settle_time": "切频等待 s",
+              "carrier_hz": "载波设定 Hz", "tone_hz": "基带单音 Hz"}
+    rows = []
+    for parameter in records[0]["parameters"]:
+        values = [r["parameters"].get(parameter) for r in records]
+        status = "unknown" if any(v is None for v in values) else ("same" if all(v == values[0] for v in values) else "different")
+        blocking = parameter != "sensor"
+        rows.append({"parameter": parameter, "label": labels[parameter], "values": values,
+                     "status": status, "blocking": blocking, "note": "缺失值不是默认值；不自动校正仪器差异。" if blocking else "人工说明不能证明机械位置/样品条件相同。"})
+    for private, parameter, label in (("_identity", "device_identity", "设备身份一致性"),
+                                      ("_fpga", "fpga_identity", "FPGA 镜像一致性"),
+                                      ("_algorithm", "estimator_identity", "估计器源码一致性")):
+        status, safe = _relation([r[private] for r in records], reference_index)
+        rows.append({"parameter": parameter, "label": label, "values": safe, "status": status,
+                     "blocking": True, "note": "仅显示一致性结论，不导出设备身份值。"})
+        for record, value in zip(records, safe):
+            record["parameters"][parameter] = value
+    report["compatibility"] = rows
+    blocking = [r for r in rows if r["blocking"] and r["status"] != "same"]
+    if blocking:
+        report["warnings"].append("测量参数不同或未知：" + "、".join(r["label"] for r in blocking) + "。仅叠加查看，禁止定量参考差值。")
+    if any(r["parameter"] == "sensor" and r["status"] != "same" for r in rows):
+        report["warnings"].append("传感器/机械位置的一致性未得到完整记录；叠加及数字幅度差不能证明材料造成了变化。")
+    return not blocking
+
+
+def _started(value):
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        return parsed.replace(tzinfo=timezone.utc).timestamp() if parsed.tzinfo is None else parsed.timestamp()
+    except (AttributeError, TypeError, ValueError, OverflowError):
+        return math.inf
+
+
+def build_comparison(root, keys, reference_key=None):
+    """2–8 条同类型可信记录；返回可 JSON 序列化、DiagnosticPlot 可显示的模型。"""
+    root = Path(root).resolve()
+    if not isinstance(keys, (list, tuple)) or not 2 <= len(keys) <= 8 or any(not isinstance(k, str) for k in keys) or len(set(keys)) != len(keys):
+        raise ValueError("请选择 2–8 条不同实验记录")
+    if reference_key is not None and reference_key not in keys:
+        raise ValueError("参考记录必须属于本次选择")
+    records = []
+    for index, key in enumerate(keys):
+        relative = Path(key)
+        if relative.is_absolute() or len(relative.parts) != 2 or relative.parts[0] not in ("runs", "phase_runs", "teacher_runs") or ".." in relative.parts:
+            raise ValueError("实验记录路径无效")
+        run = root / "Data" / relative
+        if not run.is_dir() or run.is_symlink() or any(p.is_symlink() for p in run.parents if p.is_relative_to(root)):
+            raise ValueError("实验记录不存在或包含符号链接")
+        record = {"key": key, "files": [], "_path": run, "_contents": {}, "color": COLORS[index]}
+        manifest = read_json_source(record, "feature_report.json" if key.startswith("teacher_runs/") else "manifest.json")
+        context = read_json_source(record, "desktop_context.json", False) or read_json_source(record, "web_context.json", False)
+        kind = history_category({"key": key}, context)
+        record.update(_manifest=manifest, _context=context, kind=kind,
+                      label=str(manifest.get("label") or manifest.get("initial_label") or manifest.get("material_input") or relative.name),
+                      started_utc=str(manifest.get("started_utc", "")))
+        if kind == "teacher_sweep":
+            raise ValueError("老师历史扫频缺少统一的 measurements.csv 对比契约；请逐条查看或导出，不能混入新扫频定量对比")
+        telemetry = manifest.get("telemetry") or {}
+        if (manifest.get("status") not in ("complete", "stopped") or manifest.get("errors") != [] or
+                telemetry.get("tx_end_of_burst_sent") is not True or telemetry.get("workers_stopped") is not True or
+                not (telemetry.get("rx_stop_sent") is True or telemetry.get("rx_stop_command_sent") is True) or
+                context.get("desktop_status", context.get("web_status")) in ("failed", "stop_unconfirmed", "initialization_failed")):
+            raise ValueError(f"记录 {key} 未完成、存在错误或缺少完整收发停止证据，不能参与对比")
+        record["parameters"] = _parameters(record)
+        records.append(record)
+    if len({r["kind"] for r in records}) != 1:
+        raise ValueError("请选择同一种实验类型；历史幅相与手指位移研究需分别对比")
+    if reference_key is None:
+        reference_key = min(records, key=lambda r: _started(r["started_utc"]))["key"]
+    reference_index = list(keys).index(reference_key)
+    report = {"schema_version": 1, "status": "ready", "kind": records[0]["kind"], "keys": list(keys),
+              "reference_key": reference_key, "sources": [], "compatibility": [], "warnings": [],
+              "quantitative_difference_allowed": False, "charts": [], "metrics": [], "tables": {}}
+    compatible = compare_parameters(records, reference_index, report)
+    if records[0]["kind"] == "material_sweep":
+        from .material_sweep.comparison import compare_sweeps
+        compare_sweeps(records, reference_index, report, compatible)
+    else:
+        from .finger_displacement.comparison import compare_phase
+        compare_phase(records, reference_index, report)
+    report["sources"] = [{k: r[k] for k in ("key", "label", "started_utc", "parameters", "files")} for r in records]
+    json.dumps(report, allow_nan=False)
+    return report

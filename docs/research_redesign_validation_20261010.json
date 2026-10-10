@@ -1,0 +1,99 @@
+{
+  "validated_at": "2026-10-10T11:24:48.850061+08:00",
+  "scope": "双实验桌面研究工作流与用户选择路径的 ZIP 打包导出；离线验证",
+  "environment": {
+    "conda_environment": "rf-gnuradio",
+    "python": "3.14.6",
+    "qt": "6.12.0",
+    "pyqtgraph": "0.14.0",
+    "gnuradio": "3.10.12.0",
+    "uhd": "4.10"
+  },
+  "tests": {
+    "command": "QT_QPA_PLATFORM=offscreen PYTHONDONTWRITEBYTECODE=1 python -B -m pytest -q",
+    "passed": 117,
+    "subtests_passed": 59,
+    "seconds": 6.28,
+    "exit_code": 0
+  },
+  "desktop_check": {
+    "history_records": 24,
+    "device_profiles": 2,
+    "hardware_opened": false
+  },
+  "qt_lifecycle": {
+    "fix": "显式关闭 PyQtGraph 图表并清理窗口持有的定时器；测试释放 QObject 后再退出。",
+    "subprocess_repeated_window_open_close_exit_code": 0,
+    "idle_desktop_entry_exit_code": 0,
+    "hardware_constructor_guarded": true
+  },
+  "visual_review": {
+    "offscreen": true,
+    "window_sizes": [
+      [
+        1480,
+        1000
+      ],
+      [
+        1080,
+        740
+      ]
+    ],
+    "reviewed": [
+      "材料扫频空态与控件",
+      "手指引导／自由流程与小窗口滚动",
+      "历史导出入口",
+      "合成标定、验证误差、距离与位移报告"
+    ],
+    "synthetic_report_is_physical_validation": false
+  },
+  "real_history_bundle_samples": [
+    {
+      "count": 39,
+      "bytes": 3647463,
+      "sha256": "ca17fba39b234e3333b0783c3ef6ba406af89fe11f79802fabdb72ff6c3eac5a",
+      "warnings": [],
+      "include_raw_iq": false,
+      "run_key": "phase_runs/20261009T152709_514652Z",
+      "artifact_name": "phase_real_experiment.zip",
+      "per_file_sha256_verified": true
+    },
+    {
+      "count": 61,
+      "bytes": 4017127,
+      "sha256": "3e35aa3ef532fc8cd9ab3d585098736d4e556e6f4b6a9c296c8bdd0655339969",
+      "warnings": [],
+      "include_raw_iq": true,
+      "run_key": "runs/20261009T120914_749875Z",
+      "artifact_name": "sweep_real_experiment.zip",
+      "per_file_sha256_verified": true
+    },
+    {
+      "count": 11,
+      "bytes": 405731,
+      "sha256": "b0d67a24b8222377cc3eecce2e403852325300d7a9f3e43c6a5e80f46ba4cd66",
+      "warnings": [
+        "老师历史实验仅打包原有图表；缺少连续 IQ，不能补造诊断图。"
+      ],
+      "include_raw_iq": false,
+      "run_key": "teacher_runs/20260908T084254_474905Z",
+      "artifact_name": "teacher_real_experiment.zip",
+      "per_file_sha256_verified": true
+    }
+  ],
+  "installation_protected_baseline": {
+    "files": 762,
+    "bytes": 1234893065,
+    "scope": [
+      "Data/",
+      "historical/teacher_20260908/"
+    ],
+    "verification_record": "research_redesign_installation_20261010.json"
+  },
+  "hardware_opened": false,
+  "limitations": [
+    "未进行新 USRP 探测或收发。",
+    "毫米尺精度、迟滞、重复定位误差与硬件端到端延迟尚未现场验收。",
+    "同次记录留出窗口验证不能证明跨会话泛化。"
+  ]
+}
