@@ -15,6 +15,8 @@ from .qt_cleanup import close_plot_widgets
 from .experiments.material_sweep import MaterialSweepWidget
 from .experiments.finger_displacement import FingerDisplacementWidget
 from .comparison_widget import ComparisonDialog
+from .temperature_widget import TemperaturePressureWidget
+from .analysis_workbench_widget import AnalysisWorkbenchWidget
 
 BUSY = {"starting", "running", "stopping", "saving"}
 STATUS = {"starting": "正在初始化", "running": "正在采集", "stopping": "正在停止", "saving": "正在保存",
@@ -61,10 +63,11 @@ class MainWindow(QtWidgets.QMainWindow):
         self._shutdown_done = False
         self._start_pending = False
         self._shutdown_submitted = False
+        self._auxiliary_shutdown_done = False
         self._close_timer = QtCore.QTimer(self)
         self._close_timer.setSingleShot(True)
         self._close_timer.timeout.connect(self._finish_close)
-        self.setWindowTitle("SSPP 实验台 · PySide6 + PyQtGraph")
+        self.setWindowTitle("SSPP · 温压实验台 · PySide6 + PyQtGraph")
         self.resize(1480, 1000)
         self.setMinimumSize(1080, 740)
         self._build_ui()
@@ -85,7 +88,7 @@ class MainWindow(QtWidgets.QMainWindow):
         heading = QtWidgets.QHBoxLayout()
         title = QtWidgets.QVBoxLayout()
         title.addWidget(label("SSPP 实验台", "title"))
-        subtitle = label("材料频率响应 · 手指距离标定与验证 · 本机 B210", "muted")
+        subtitle = label("材料分类 · 手指距离与位移 · 温压采集与标定", "muted")
         subtitle.setMinimumWidth(450)
         title.addWidget(subtitle)
         heading.addLayout(title)
@@ -101,7 +104,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.notice.hide()
         layout.addWidget(self.notice)
         splitter = QtWidgets.QSplitter(QtCore.Qt.Orientation.Horizontal)
-        splitter.addWidget(self._build_sidebar())
+        self.sidebar = self._build_sidebar()
+        splitter.addWidget(self.sidebar)
         self.tabs = QtWidgets.QTabWidget()
         self.tabs.addTab(self._build_live(), "实时实验")
         self.tabs.addTab(self._build_history(), "实验结果与回放")
@@ -118,6 +122,19 @@ class MainWindow(QtWidgets.QMainWindow):
         self.finger_workspace.analyze_requested.connect(self._finger_analyze)
         self.finger_workspace.current_requested.connect(self._finger_current)
         self.finger_workspace.export_requested.connect(lambda path: QtGui.QDesktopServices.openUrl(QtCore.QUrl.fromLocalFile(path)))
+        self.temperature_workspace = TemperaturePressureWidget(Path(self.service.settings.root))
+        self.temperature_tab = self.tabs.addTab(self.temperature_workspace, "温压采集")
+        self.temperature_workspace.run_completed.connect(self._temperature_complete)
+        self.temperature_workspace.error.connect(self._error)
+        self.temperature_workspace.busy_changed.connect(self._temperature_busy_changed)
+        analysis_project = Path(getattr(self.service.settings, "analysis_project", "../rf-analysis")).expanduser()
+        if not analysis_project.is_absolute():
+            analysis_project = Path(self.service.settings.root) / analysis_project
+        self.analysis_workspace = AnalysisWorkbenchWidget(
+            root=Path(self.service.settings.root), analysis_project=analysis_project.resolve(),
+            python_executable=getattr(self.service.settings, "analysis_python", None))
+        self.analysis_tab = self.tabs.addTab(self.analysis_workspace, "研究分析与模型")
+        self.tabs.currentChanged.connect(self._tab_changed)
         self._mode_changed()
         splitter.addWidget(self.tabs)
         splitter.setSizes([340, 1100])
@@ -144,6 +161,10 @@ class MainWindow(QtWidgets.QMainWindow):
             QHeaderView::section {background: #edf3f5; border: none; padding: 8px; font-weight: 600;}
             QCheckBox {spacing: 7px;} QScrollArea {border: none; background: transparent;}
         """)
+
+    def _tab_changed(self, index):
+        # 温压与离线研究提供完整工作空间，各自页面已经有开始/停止或分析操作。
+        self.sidebar.setVisible(index not in (self.temperature_tab, self.analysis_tab))
 
     def _build_sidebar(self):
         side = QtWidgets.QWidget()
@@ -410,6 +431,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.analyze_button = QtWidgets.QPushButton("加载完整诊断")
         self.analyze_button.clicked.connect(self.load_diagnostics)
         row.addWidget(self.analyze_button)
+        self.workbench_button = QtWidgets.QPushButton("研究分析 / 训练标定")
+        self.workbench_button.clicked.connect(self.open_workbench)
+        row.addWidget(self.workbench_button)
         self.export_button = QtWidgets.QPushButton("打包导出实验…")
         self.export_button.clicked.connect(self.export_bundle)
         row.addWidget(self.export_button)
@@ -646,6 +670,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self._message("两类实验的采集参数及共用高级参数已恢复默认值。设备、名称和手指标定记录保留；请重新检查参数并确认接线。")
 
     def start_experiment(self):
+        if self.temperature_workspace.is_running:
+            self._message("温压正在采集或保存，请完成后再开始射频实验。")
+            return
         if not self._valid_workspace():
             return
         if not self.confirm.isChecked():
@@ -683,14 +710,36 @@ class MainWindow(QtWidgets.QMainWindow):
                      lambda value: self._message(f"已提交阶段：{stage}；过渡 {settle:g} 秒；接触报告：{'是' if contact else '否'}。"), "control")
 
     def _set_active(self, active):
+        temperature_active = hasattr(self, "temperature_workspace") and self.temperature_workspace.is_running
         comparison_work = self._comparison_busy or "comparison_export" in self.runner.pending
         self.config_container.setEnabled(not active and not self._close_requested)
         self.reset_button.setEnabled(not active and not self._parameter_reset_blocked())
-        self.start_button.setEnabled(not active and not comparison_work and not self._close_requested)
+        self.start_button.setEnabled(not active and not temperature_active and not comparison_work and not self._close_requested)
         self.check_button.setEnabled(not active and "preflight" not in self.runner.pending and not self._close_requested)
         self.stop_button.setEnabled(active and not self._close_requested)
         self.export_button.setEnabled(not active and self.selected_details is not None and "export" not in self.runner.pending and not comparison_work)
         self._update_comparison_controls(active)
+        if hasattr(self, "temperature_workspace"):
+            self.temperature_workspace.set_external_busy(active or self._close_requested)
+        if hasattr(self, "analysis_workspace"):
+            self.analysis_workspace.set_acquisition_busy(active or temperature_active or self._close_requested)
+
+    def _temperature_busy_changed(self, busy):
+        active = ((self.snapshot.get("job") or {}).get("status") in BUSY
+                  or self._start_pending or bool(self.snapshot.get("preparing")))
+        self._set_active(active)
+
+    def _temperature_complete(self, key):
+        # 让当前封存信号处理完成，再刷新新的分析来源。
+        QtCore.QTimer.singleShot(0, self.analysis_workspace.refresh_sources)
+        self.statusBar().showMessage(f"温压记录已保存：{key}；可进入研究分析与模型。")
+
+    def open_workbench(self):
+        self.tabs.setCurrentIndex(self.analysis_tab)
+        self.analysis_workspace.refresh_sources()
+        if self.selected_details and hasattr(self.analysis_workspace, "select_source"):
+            self.analysis_workspace.select_source(
+                str(Path(self.service.settings.root) / "Data" / self.selected_details["key"]))
 
     def _tick(self):
         if self._close_requested:
@@ -802,6 +851,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.tabs.setCurrentIndex(0)
 
     def refresh_history(self, select_key=None):
+        if hasattr(self, "analysis_workspace") and not self._close_requested:
+            self.analysis_workspace.refresh_sources()
         def loaded(rows):
             self._history_all_rows = rows
             self._render_history_rows(select_key if isinstance(select_key, str) else self._selected_history_key)
@@ -1273,9 +1324,10 @@ class MainWindow(QtWidgets.QMainWindow):
             self._render_replay()
 
     def closeEvent(self, event):
-        if self._shutdown_done and not self.runner.pending:
+        if self._shutdown_done and self._auxiliary_shutdown_done and not self.runner.pending:
             self.timer.stop()
             self._close_timer.stop()
+            self.temperature_workspace.timer.stop()
             if self.comparison_dialog is not None and not self.comparison_dialog.is_closed:
                 self.comparison_dialog.close()
             close_plot_widgets(self)
@@ -1285,7 +1337,8 @@ class MainWindow(QtWidgets.QMainWindow):
         if self._close_requested:
             return
         job = self.snapshot.get("job") or {}
-        active = job.get("status") in BUSY or self._start_pending or self.snapshot.get("preparing")
+        active = (job.get("status") in BUSY or self._start_pending
+                  or self.snapshot.get("preparing") or self.temperature_workspace.is_running)
         if active:
             answer = QtWidgets.QMessageBox.question(self, "停止实验并退出", "实验仍在采集、初始化或保存。停止收发并等待保存完成后退出？",
                 QtWidgets.QMessageBox.StandardButton.Yes | QtWidgets.QMessageBox.StandardButton.No,
@@ -1302,6 +1355,12 @@ class MainWindow(QtWidgets.QMainWindow):
     def _finish_close(self):
         if not self._close_requested:
             return
+        if not self._auxiliary_shutdown_done:
+            serial_done = self.temperature_workspace.shutdown(timeout_s=0.05)
+            analysis_done = self.analysis_workspace.shutdown()
+            self._auxiliary_shutdown_done = serial_done and analysis_done
+            if not self._auxiliary_shutdown_done:
+                self._close_timer.start(100)
         if not self._shutdown_submitted:
             def done(value):
                 self._shutdown_done = True
@@ -1312,5 +1371,5 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.runner.closing = False
                 self._error(f"关闭时发生错误，请检查设备状态：{error}")
             self._shutdown_submitted = self.runner.submit("shutdown", self.service.shutdown, done, failed, "urgent")
-        if self._shutdown_done and not self.runner.pending:
+        if self._shutdown_done and self._auxiliary_shutdown_done and not self.runner.pending:
             self.close()

@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 import os
+import sys
 from pathlib import Path
 
 from dotenv import dotenv_values
@@ -20,6 +21,8 @@ class Settings:
     conda_env: str = "rf-gnuradio"
     own_profile: str = "Data/device_profiles/own_device_20261008.json"
     teacher_profile: str = "local_device.json"
+    analysis_project: str = "../rf-analysis"
+    analysis_python: str = str(Path(sys.executable).parents[2] / "rf-analysis/bin/python")
 
     @classmethod
     def from_env(cls, root=None):
@@ -51,4 +54,6 @@ class Settings:
             conda_env=env_name,
             own_profile=values.get("SSPP_OWN_PROFILE", cls.own_profile),
             teacher_profile=values.get("SSPP_TEACHER_PROFILE", cls.teacher_profile),
+            analysis_project=values.get("SSPP_ANALYSIS_PROJECT", cls.analysis_project),
+            analysis_python=values.get("SSPP_ANALYSIS_PYTHON", cls.analysis_python),
         )

@@ -1,8 +1,14 @@
 # SSPP 实验室 · PySide6 / PyQtGraph
 
-本机科研桌面软件，按两类实验组织：**材料扫频**观察不同载频下的幅度响应，**固定频率手指实验**观察幅相变化，并用尺子真值完成同次实验内的距离／位移标定与独立验证。
+本机科研桌面软件：**材料扫频**观察不同载频下的幅度响应，**固定频率手指实验**观察幅相变化并用尺量参考值标定，新增 **Arduino 温压串口采集**；采集后可在同一软件内直接调用 `rf-analysis` 分析、训练与标定。
 
-操作步骤见 **[实验工作流](docs/experiment_workflows.md)**；多条记录的筛选、叠加与差值见 **[结果比较](docs/results_comparison.md)**；模块、算法、数据和进展见 **[项目设计说明](docs/design.md)**。原项目 `sspp-usrp` 保留；本项目不运行 FastAPI 或 HTTP 服务，AI 留待后续明确需求。
+操作步骤见 **[采集后直接分析与温压采集](docs/analysis_workbench.md)**、**[实验工作流](docs/experiment_workflows.md)**；多条记录的筛选、叠加与差值见 **[结果比较](docs/results_comparison.md)**；原设计基线见 **[项目设计说明](docs/design.md)**。原项目 `sspp-usrp` 保留；本项目不运行 FastAPI 或 HTTP 服务。
+
+## 采集后直接分析（2026-10-13）
+
+新增「温压采集」和「研究分析与模型」。前者接收两种已验证过的 Arduino 文本协议，后台保存原始字节、CSV、事件与停止证据；后者直接选择本项目 `Data/` 的完成记录，支持响应曲线、材料分类训练／预测、同 run 手指距离／位移标定与温压参考值拟合。材料标签、参考区间与独立验证角色在页面填写，草稿、分析结果和模型按版本保存于相邻 `rf-analysis/analysis_runs/`。
+
+数据格式以本实验平台为准，原始文件无需迁移、复制或转换为 rf-analysis 旧 Manifest。旧平台记录留存，首版不依赖 PostgreSQL。当前没有训练／标定数据集；软件流程可用不等于已获得真实分类准确率或物理量精度。详细条件见 [联动说明](docs/analysis_workbench.md)。
 
 ## 启动
 
@@ -72,10 +78,12 @@ python -m pip install -r requirements-desktop.txt
 | `SSPP_TRACE_INTERVAL_MS` | `100` | 幅相批次发布间隔 |
 | `SSPP_PREVIEW_INTERVAL_MS` | `250` | RX 预览发布间隔 |
 | `SSPP_MAX_DISPLAY_POINTS` | `20000` | 主曲线内存点数上限，不影响完整落盘 |
+| `SSPP_ANALYSIS_PROJECT` | `../rf-analysis` | 分析代码正本，直接读取采集记录 |
+| `SSPP_ANALYSIS_PYTHON` | 已有 `rf-analysis/bin/python` | 独立后台分析解释器 |
 
 ```text
 sspp_desktop/        窗口、两类实验交互、服务、绘图、回放、研究与导出调度
-sspp_experiments/    材料扫频与手指实验各自的采集／分析模块
+sspp_experiments/    材料扫频、手指与温压各自的采集／分析模块
 sspp_lab/           共用控制器、硬件、DSP、实时发布、诊断；旧模块兼容入口
 Data/               历史副本、新实验记录和派生分析（Git 忽略）
 tests/              离线回归
