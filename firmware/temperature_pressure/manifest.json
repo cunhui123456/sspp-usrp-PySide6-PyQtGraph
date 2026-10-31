@@ -1,0 +1,32 @@
+{
+  "schema": "multisensor.firmware_bundle.v1",
+  "board": "nano_old",
+  "mcu": "atmega328p",
+  "signature": "1e950f",
+  "upload_baudrate": 57600,
+  "data_baudrate": 9600,
+  "application_limit": 30720,
+  "provenance_note": "既有2026-09-07验证固件，原源码保持；未在2026-10-28重新编译或烧录。压力应用HEX来自完整Flash备份的应用区，含原尾部填充，与当前源码不是新编译产物。",
+  "protocols": {
+    "pressure_v1": {
+      "source_file": "Temperature_Pressure_Acquisition.ino",
+      "source_sha256": "2c1c2ac397b57a212fb590da369df2ffcd609dddd96559b8a9be23efeb456ef3",
+      "source_origin": "/Users/cunhui/Git-Projects/Academic_Research/arduino-sensor/sketches/Temperature_Pressure_Acquisition/Temperature_Pressure_Acquisition.ino",
+      "hex_file": "pressure_v1.hex",
+      "hex_sha256": "5f3427533da4f7297d7b09b9ec967b09460c0b50b43df13802b752990bccafbb",
+      "hex_origin": "/Users/cunhui/Library/Mobile Documents/iCloud~md~obsidian/Documents/Note-Public/1_Projects/Academic_Research/Three_Layer_Sensor_Research/02_Engineering/Firmware_Restore_Nano_App_2026-09-07.hex",
+      "wiring": "P2 / S3 → A2",
+      "provenance": "2026-09-07 实验温度烧录并校验后恢复原压力应用；压力应用不是新编译产物"
+    },
+    "temperature_v1": {
+      "source_file": "Temperature_Channel_Check.ino",
+      "source_sha256": "6e42c71f437a941dc74aa0be1884a430ab6230097bc811a23899731b1c0d8c96",
+      "source_origin": "/Users/cunhui/Git-Projects/Academic_Research/arduino-sensor/sketches/Temperature_Channel_Check/Temperature_Channel_Check.ino",
+      "hex_file": "temperature_v1.hex",
+      "hex_sha256": "e87cef73d7337f91141ade236f4db33bcebf95012f3f7a43e3e11446adc55910",
+      "hex_origin": "/Users/cunhui/Library/Mobile Documents/iCloud~md~obsidian/Documents/Note-Public/1_Projects/Academic_Research/Three_Layer_Sensor_Research/02_Engineering/Firmware_Temperature_Check_v1_2026-09-07.hex",
+      "wiring": "P5 / S6、P6 / S7 → A1，顺序采样",
+      "provenance": "2026-09-07 温度检查 v1 编译、烧录、读回校验通过"
+    }
+  }
+}

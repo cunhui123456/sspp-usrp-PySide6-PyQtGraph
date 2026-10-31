@@ -117,6 +117,8 @@ class FingerResearchMixin:
             raise LabError("动作名称应为 1–80 字")
         with self.lock:
             job = self.job or {}
+            if job.get("config", {}).get("liquid_temperature"):
+                raise LabError("液体温度实验使用独立稳定区间分析，不用于手指毫米标定")
             if job.get("status") != "running" or job.get("config", {}).get("mode") != "phase" or not job.get("baseline"):
                 raise LabError("请先开始固定频率实验，等待静止参考通过")
             if self.finger_analysis_lock.locked():
@@ -189,6 +191,9 @@ class FingerResearchMixin:
         if not key or not key.startswith("phase_runs/"):
             raise LabError("请选择固定频率幅相记录")
         path = self.run_path(key)
+        context = read_json(path / "desktop_context.json", {}) or {}
+        if context.get("experiment", "").startswith("liquid_temperature_"):
+            raise LabError("液体温度记录请使用液体温度影响分析，不用于手指毫米标定")
         for name in ("amplitude_phase.jsonl", "baseline.json", "manifest.json"):
             if (path / name).is_symlink():
                 raise LabError("研究源文件不能是符号链接")

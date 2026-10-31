@@ -162,6 +162,61 @@ class TemperatureCaptureTests(unittest.TestCase):
                 self.assertTrue(session.stop())
             self.assertTrue(reader.closed)
 
+    def test_no_bytes_times_out_and_seals_distinct_diagnostic(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            reader = FakeReader([])
+            session = SerialCaptureSession(temporary, lambda port, baud: reader, first_sample_timeout_s=.08)
+            session.start(self.config())
+            wait_until(lambda: session.snapshot()["status"] == "running")
+            self.assertIn("尚未收到任何字节", session.snapshot()["diagnostic"])
+            wait_until(lambda: not session.is_running)
+            manifest = json.loads((session.run_path / "manifest.json").read_text())
+            self.assertEqual(manifest["status"], "failed_or_incomplete")
+            self.assertEqual(manifest["raw_bytes"], 0)
+            self.assertEqual(manifest["event_counts"]["no_serial_data"], 1)
+            self.assertTrue(reader.closed)
+
+    def test_wrong_protocol_keeps_original_bytes_and_reports_protocol_timeout(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            raw = b"100,2.71\n150,2.72\n"
+            reader = FakeReader([raw])
+            session = SerialCaptureSession(temporary, lambda port, baud: reader, first_sample_timeout_s=.08)
+            session.start(self.config("temperature_v1"))
+            wait_until(lambda: session.snapshot()["raw_bytes"] == len(raw))
+            self.assertIn("尚无匹配样本", session.snapshot()["diagnostic"])
+            wait_until(lambda: not session.is_running)
+            self.assertEqual((session.run_path / "raw_serial.bin").read_bytes(), raw)
+            self.assertEqual(session.snapshot()["rows"], 0)
+            self.assertEqual(session.snapshot()["event_counts"]["protocol_timeout"], 1)
+
+    def test_received_samples_then_stall_preserves_curve_until_operator_stop(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            reader = FakeReader([b"100,2.71\n"])
+            session = SerialCaptureSession(temporary, lambda port, baud: reader,
+                                           first_sample_timeout_s=.06, stalled_warning_s=.06)
+            session.start(self.config())
+            wait_until(lambda: "数据已停更" in session.snapshot()["diagnostic"])
+            self.assertTrue(session.is_running)
+            self.assertEqual(session.snapshot()["rows"], 1)
+            self.assertEqual(session.snapshot()["points"][0]["voltage_v"], 2.71)
+            self.assertTrue(session.stop())
+
+    def test_preparation_provenance_must_match_target_and_is_saved_separately(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            reader = FakeReader([b"100,2.71\n"])
+            session = SerialCaptureSession(temporary, lambda port, baud: reader)
+            evidence = {"port": "/dev/cu.FAKE", "protocol": "temperature_v1", "preparation_key": "device_preparations/test"}
+            with self.assertRaisesRegex(ValueError, "准备记录"):
+                session.start(CaptureConfig("/dev/cu.FAKE", "pressure_v1", "sample", preparation=evidence))
+            self.assertIsNone(session.thread)
+            evidence["protocol"] = "pressure_v1"
+            session.start(CaptureConfig("/dev/cu.FAKE", "pressure_v1", "sample", preparation=evidence))
+            wait_until(lambda: session.snapshot()["rows"] == 1)
+            self.assertTrue(session.stop())
+            manifest = json.loads((session.run_path / "manifest.json").read_text())
+            self.assertEqual(manifest["preparation"], evidence)
+            self.assertNotIn("preparation", manifest["serial"])
+
 
 if __name__ == "__main__":
     unittest.main()

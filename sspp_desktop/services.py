@@ -10,15 +10,18 @@ from pathlib import Path
 
 from sspp_lab.controller import LabController, read_json, write_json
 from .config import Settings
+from .device_environment import DeviceEnvironmentMixin
 from .research import FingerResearchMixin
 from .bundle import BundleExportMixin
 from .comparison_service import ComparisonMixin
+from .liquid_temperature_service import LiquidTemperatureMixin
 
 
-class DesktopService(FingerResearchMixin, BundleExportMixin, ComparisonMixin, LabController):
+class DesktopService(DeviceEnvironmentMixin, LiquidTemperatureMixin, FingerResearchMixin, BundleExportMixin, ComparisonMixin, LabController):
     def __init__(self, settings=None):
         self.settings = settings or Settings.from_env()
         super().__init__(self.settings.root)
+        self._initialize_environment_state()
         self._reset_realtime()
 
     def _reset_realtime(self):
@@ -66,13 +69,15 @@ class DesktopService(FingerResearchMixin, BundleExportMixin, ComparisonMixin, La
     def _handle_event(self, event, job):
         """由收集线程调用；不接触 Qt，不读取正在增长的数据文件。"""
         kind = event.get("event")
-        if kind != "TRACE":
+        liquid = bool(job.get("config", {}).get("liquid_temperature"))
+        if kind != "TRACE" and not liquid:
             self._research_event(event, job)
         if kind == "TRACE":
             seq = int(event.get("seq", self.trace_seq + 1))
             if seq <= self.trace_seq:
                 return
-            self._research_event(event, job)
+            if not liquid:
+                self._research_event(event, job)
             points = event.get("points", [])
             if points and seq != self.trace_seq + 1:
                 self.display_gaps += seq - self.trace_seq - 1
@@ -118,7 +123,9 @@ class DesktopService(FingerResearchMixin, BundleExportMixin, ComparisonMixin, La
         output = self.root / job["output"]
         if not output.is_dir():
             return
-        self._save_finger_context(job, output)
+        liquid = job["config"].get("liquid_temperature")
+        if not liquid:
+            self._save_finger_context(job, output)
         names = [
             "sspp_lab/controller.py", "sspp_lab/realtime.py",
             "sspp_desktop/services.py", "sspp_desktop/window.py", "sspp_desktop/plots.py",
@@ -126,7 +133,7 @@ class DesktopService(FingerResearchMixin, BundleExportMixin, ComparisonMixin, La
         ]
         write_json(output / "desktop_context.json", {
             "schema_version": 2, "source": "local_desktop_manual_experiment",
-            "experiment": "material_sweep" if job["config"]["mode"] == "sweep" else "finger_displacement",
+            "experiment": ("liquid_temperature_" + job["config"]["mode"]) if liquid else ("material_sweep" if job["config"]["mode"] == "sweep" else "finger_displacement"),
             "job_id": job["id"], "condition": job["config"]["condition"],
             "sensor": job["config"]["sensor"], "parameters": job["config"],
             "initial_setup_user_confirmed": job["config"]["setup_confirmed"],

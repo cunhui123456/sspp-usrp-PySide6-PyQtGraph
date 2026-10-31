@@ -1,0 +1,68 @@
+{
+  "recorded_at": "2026-10-28T21:17:18.104045+08:00",
+  "device": "MacBook Pro M5 Max / 64 GB; same execution environment as prior verified session",
+  "scope": "offline software regression, saved capture diagnosis, OS enumeration; no physical serial open, flash write, RF, or firmware compilation",
+  "regression": {
+    "passed": 380,
+    "subtests_passed": 197,
+    "duration_s": 33.43,
+    "command": "QT_QPA_PLATFORM=offscreen PYQTGRAPH_QT_LIB=PySide6 MPLBACKEND=Agg rf-gnuradio/python -B -m pytest -q"
+  },
+  "ui": {
+    "width": 1080,
+    "height": 740,
+    "mock_samples": 180,
+    "voltage_and_adc_visible": true,
+    "hardware": false
+  },
+  "coverage": [
+    "full Flash backup and MCU signature gate",
+    "application-only HEX and provenance",
+    "explicit upload approval and verify-only identity distinction",
+    "three advancing protocol frames",
+    "wrong protocol and no bytes differentiated",
+    "first-sample timeout preserves raw capture",
+    "Flash cancellation waits for write verification",
+    "log disk failure does not interrupt Flash command",
+    "serial and RF initialization independent",
+    "global locks, reinitialization and mode invalidation",
+    "startup no hardware access",
+    "close waits for hardware workflow"
+  ],
+  "firmware": "Existing verified application HEX from 2026-09-07; source/HEX provenance in firmware/temperature_pressure/manifest.json",
+  "physical_validation_pending": "User must confirm actual sensor Nano, wiring and mode then use explicit upload/verify control; offline results do not claim hardware upload or sensor calibration.",
+  "analysis_handoff": {
+    "status": "complete",
+    "kind": "sensor",
+    "samples": 6,
+    "protocol": "temperature_v1",
+    "preparation_records_excluded": true
+  },
+  "uploader_verification": {
+    "version": "8.3",
+    "architecture": "arm64",
+    "device_opened": false,
+    "selection_order_checks": [
+      {
+        "executable": "/Users/cunhui/Library/Arduino15/packages/arduino/tools/avrdude/8.0.0-arduino1/bin/avrdude",
+        "config": "/Users/cunhui/Library/Arduino15/packages/arduino/tools/avrdude/8.0.0-arduino1/etc/avrdude.conf",
+        "errno": 86,
+        "error": "[Errno 86] Bad CPU type in executable: '/Users/cunhui/Library/Arduino15/packages/arduino/tools/avrdude/8.0.0-arduino1/bin/avrdude'",
+        "help_valid": false
+      },
+      {
+        "executable": "/opt/homebrew/bin/avrdude",
+        "config": "/opt/homebrew/etc/avrdude.conf",
+        "help_exit_code": 0,
+        "help_valid": true
+      }
+    ],
+    "bundled_outside_sandbox_result": "exit 127 bad CPU type"
+  },
+  "after_arduino_first_policy": {
+    "targeted_tests_passed": 65,
+    "subtests_passed": 19,
+    "help_flag_followup_tests_passed": 14,
+    "help_flag_followup_subtests_passed": 7
+  }
+}

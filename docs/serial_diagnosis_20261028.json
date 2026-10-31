@@ -1,0 +1,158 @@
+{
+  "recorded_at": "2026-10-28T20:37:05.241860+08:00",
+  "scope": "read-only source, saved capture, OS device enumeration and tool executable checks; no serial opened or MCU operations",
+  "observed_runs": [
+    {
+      "run_key": "temperature_pressure_runs/20261028T121214_751954Z",
+      "started_utc": "2026-10-28T12:12:14.752236+00:00",
+      "ended_utc": "2026-10-28T12:15:13.190835+00:00",
+      "status": "failed_or_incomplete",
+      "port": "/dev/cu.ULTFIELD1",
+      "protocol": "temperature_v1",
+      "rows": 0,
+      "raw_bytes": 0,
+      "raw_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stop_reason": "operator_stop",
+      "errors": [
+        "未取得符合所选协议的完整数据行"
+      ]
+    },
+    {
+      "run_key": "temperature_pressure_runs/20261028T121545_848157Z",
+      "started_utc": "2026-10-28T12:15:45.848467+00:00",
+      "ended_utc": "2026-10-28T12:16:05.027257+00:00",
+      "status": "failed_or_incomplete",
+      "port": "/dev/cu.ULTFIELD1",
+      "protocol": "temperature_v1",
+      "rows": 0,
+      "raw_bytes": 0,
+      "raw_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stop_reason": "operator_stop",
+      "errors": [
+        "未取得符合所选协议的完整数据行"
+      ]
+    }
+  ],
+  "ioreg_command": "/usr/sbin/ioreg -l (whitelisted properties only; no device serial numbers or addresses retained)",
+  "serial_inventory_evidence": [
+    {
+      "port": "/dev/cu.usbserial-210",
+      "ancestors_and_endpoint": [
+        {
+          "name": "USB Serial",
+          "class": "IOUSBHostDevice",
+          "idProduct": 29987,
+          "USB Product Name": "USB Serial",
+          "idVendor": 6790
+        },
+        {
+          "name": "IOUSBHostInterface",
+          "class": "IOUSBHostInterface",
+          "idProduct": 29987,
+          "USB Product Name": "USB Serial",
+          "idVendor": 6790
+        },
+        {
+          "name": "AppleUSBCHCOM",
+          "class": "IOUserSerial",
+          "IOUserClass": "AppleUSBCHCOM",
+          "idProduct": 29987,
+          "IOProviderClass": "IOUSBHostInterface",
+          "IOTTYBaseName": "usbserial-",
+          "CFBundleIdentifier": "com.apple.DriverKit-AppleUSBCHCOM",
+          "idVendor": 6790
+        },
+        {
+          "name": "IOSerialBSDClient",
+          "class": "IOSerialBSDClient",
+          "CFBundleIdentifier": "com.apple.iokit.IOSerialFamily",
+          "IOProviderClass": "IOSerialStreamSync",
+          "IOTTYBaseName": "usbserial-",
+          "IOCalloutDevice": "/dev/cu.usbserial-210"
+        }
+      ]
+    },
+    {
+      "port": "/dev/cu.ULTFIELD1",
+      "ancestors_and_endpoint": [
+        {
+          "name": "IOBluetoothDevice",
+          "class": "IOBluetoothDevice"
+        },
+        {
+          "name": "IOUserBluetoothSerialDriver",
+          "class": "IOUserService",
+          "IOUserClass": "IOUserBluetoothSerialDriver",
+          "IOProviderClass": "IOBluetoothDevice",
+          "CFBundleIdentifier": "com.apple.IOUserBluetoothSerialDriver"
+        },
+        {
+          "name": "IOUserPseudoSerial",
+          "class": "IOUserSerial",
+          "IOUserClass": "IOUserPseudoSerial",
+          "CFBundleIdentifier": "com.apple.IOUserBluetoothSerialDriver",
+          "IOTTYBaseName": "ULTFIELD1"
+        },
+        {
+          "name": "IOSerialBSDClient",
+          "class": "IOSerialBSDClient",
+          "CFBundleIdentifier": "com.apple.iokit.IOSerialFamily",
+          "IOProviderClass": "IOSerialStreamSync",
+          "IOTTYBaseName": "ULTFIELD1",
+          "IOCalloutDevice": "/dev/cu.ULTFIELD1"
+        }
+      ]
+    }
+  ],
+  "conclusion": {
+    "ULTFIELD1": "Bluetooth pseudo serial; selected in both zero-byte runs",
+    "usbserial-210": "USB CHCOM 1A86:7523 candidate, matching historical Nano USB interface type; MCU identity/firmware not checked",
+    "plot": "No received bytes; no parsed samples to plot",
+    "firmware": "temperature protocol selector changes only host parser; historical temperature firmware was restored to prior pressure firmware after 2026-09-07 experiment"
+  },
+  "tool_checks": {
+    "arduino_cli": {
+      "path": "/Applications/Arduino IDE.app/Contents/Resources/app/lib/backend/resources/arduino-cli",
+      "version": "1.5.1",
+      "executable": true
+    },
+    "arduino_avrdude": {
+      "path": "/Users/cunhui/Library/Arduino15/packages/arduino/tools/avrdude/8.0.0-arduino1/bin/avrdude",
+      "architecture": "Mach-O 64-bit executable x86_64",
+      "executable": false,
+      "failure": "bad CPU type in executable"
+    },
+    "arduino_avr_gxx": {
+      "path": "/Users/cunhui/Library/Arduino15/packages/arduino/tools/avr-gcc/7.3.0-atmel3.6.1-arduino7/bin/avr-g++",
+      "architecture": "Mach-O 64-bit executable x86_64",
+      "executable": false,
+      "failure": "bad CPU type in executable"
+    }
+  },
+  "alternative_search": {
+    "locations": [
+      "Homebrew Cellar and download cache",
+      "Miniforge all environments and package cache",
+      "Arduino IDE app bundle",
+      "Arduino15 installed packages and cache",
+      ".arduinoIDE"
+    ],
+    "native_avrdude_found": false,
+    "installation_performed": false,
+    "proposal": "Install native Homebrew avrdude, preserving Arduino toolchain; validate architecture and help without opening a device. Use packaged verified application HEX to avoid relying on unavailable compiler."
+  },
+  "official_sources": [
+    {
+      "url": "https://formulae.brew.sh/formula/avrdude",
+      "verified_fact": "avrdude 8.3 Apple Silicon bottles, brew install avrdude"
+    },
+    {
+      "url": "https://github.com/avrdudes/avrdude/wiki/Building-AVRDUDE-for-macOS",
+      "verified_fact": "upstream recommends Homebrew/MacPorts for macOS"
+    },
+    {
+      "url": "https://github.com/avrdudes/avrdude/releases/tag/v8.3",
+      "verified_fact": "upstream macOS binary described as x86_64"
+    }
+  ]
+}

@@ -1,4 +1,4 @@
-"""Arduino 温压电信号采集；不烧录、不发控制命令、不换算物理温压。"""
+"""Arduino 温压电信号采集；独立显式固件准备，不换算物理温压。"""
 
 from .acquisition import SerialCaptureSession, CaptureConfig
 from .protocol import LineParser, PROTOCOLS

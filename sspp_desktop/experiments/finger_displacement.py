@@ -85,45 +85,84 @@ class FingerDisplacementWidget(QtWidgets.QWidget):
         self.pages.addTab(self._build_intervals(), "② 区间与标注")
         self.pages.addTab(self._build_report(), "③ 标定与验证报告")
 
-    def _build_capture(self):
-        page = QtWidgets.QWidget()
-        outer = QtWidgets.QVBoxLayout(page)
+    def _build_settings(self):
+        # 设置保持为一个组件：独立使用时嵌在采点页，主窗口可取出放入左侧。
+        self.settings_widget = QtWidgets.QWidget()
+        self.settings_widget.setObjectName("fingerSettings")
+        self.settings_widget.setMinimumWidth(0)
+        self.settings_widget.setSizePolicy(QtWidgets.QSizePolicy.Policy.Preferred,
+                                           QtWidgets.QSizePolicy.Policy.Maximum)
+        settings_layout = QtWidgets.QVBoxLayout(self.settings_widget)
+        settings_layout.setContentsMargins(0, 0, 0, 0)
+        settings_layout.setSpacing(10)
         settings = QtWidgets.QGroupBox("尺量参考与窗口")
         form = QtWidgets.QFormLayout(settings)
+        form.setFieldGrowthPolicy(QtWidgets.QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
+        form.setRowWrapPolicy(QtWidgets.QFormLayout.RowWrapPolicy.WrapLongRows)
         self.initial_distance = number(10)
         self.tolerance = number(2, .01, 100)
         self.settle = number(2, 0, 30, " s")
         self.hold = number(2, .5, 30, " s")
         form.addRow("初始尺量距离", self.initial_distance)
         form.addRow("验证允许误差", self.tolerance)
-        timing = QtWidgets.QHBoxLayout()
-        timing.addWidget(text_label("移动后等待"))
-        timing.addWidget(self.settle)
-        timing.addWidget(text_label("稳定采样"))
-        timing.addWidget(self.hold)
-        form.addRow(timing)
+        form.addRow("移动后等待", self.settle)
+        form.addRow("稳定采样时长", self.hold)
         form.addRow(text_label("位移 = 估计距离 − 初始尺量距离；正值表示远离参考表面。", "muted"))
-        outer.addWidget(settings)
-        mode_row = QtWidgets.QHBoxLayout()
+        settings_layout.addWidget(settings)
+        method_group = QtWidgets.QGroupBox("操作方式")
+        method_layout = QtWidgets.QVBoxLayout(method_group)
         self.method = QtWidgets.QComboBox()
         self.method.addItem("引导采点 · 按计划逐个确认", "guided")
         self.method.addItem("自由记录 · 自选位置与动作", "free")
+        self.method.setSizeAdjustPolicy(QtWidgets.QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
+        self.method.setMinimumContentsLength(12)
         self.method.currentIndexChanged.connect(self._method_changed)
-        mode_row.addWidget(text_label("记录流程"))
-        mode_row.addWidget(self.method, 1)
-        outer.addLayout(mode_row)
-        self.guided = QtWidgets.QGroupBox("位置计划 · 不控制机械移动")
-        gf = QtWidgets.QFormLayout(self.guided)
+        method_layout.addWidget(self.method)
+        settings_layout.addWidget(method_group)
+        self.guided_settings = QtWidgets.QGroupBox("引导距离计划")
+        gf = QtWidgets.QFormLayout(self.guided_settings)
+        gf.setFieldGrowthPolicy(QtWidgets.QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
+        gf.setRowWrapPolicy(QtWidgets.QFormLayout.RowWrapPolicy.WrapLongRows)
         self.calibration_plan = QtWidgets.QLineEdit("10, 20, 30")
         self.validation_plan = QtWidgets.QLineEdit("15, 25")
+        self.calibration_plan.setMinimumWidth(0)
+        self.validation_plan.setMinimumWidth(0)
         gf.addRow("标定距离 mm", self.calibration_plan)
         gf.addRow("独立验证距离 mm", self.validation_plan)
-        gf.addRow(text_label("以上是可编辑示例计划，不表示已知有效范围。用毫米尺测量，标定与验证使用不同稳定区间。", "muted"))
+        gf.addRow(text_label("距离用逗号分隔。示例不表示已知有效范围；标定与验证使用不同稳定区间。", "muted"))
+        settings_layout.addWidget(self.guided_settings)
+        self._settings_taken = False
+        return self.settings_widget
+
+    def take_settings_widget(self):
+        """取出可放在约 340px 左栏的参数组件；重复调用返回同一组件。
+
+        未调用时设置保留在现场采点页。调用方应将返回值加入自己的布局并
+        显示；字段及信号仍由本工作区持有，采点/取消/状态留在主工作区。
+        """
+        if not self._settings_taken:
+            self._capture_layout.removeWidget(self.settings_widget)
+            self.settings_widget.setParent(None)
+            self._settings_taken = True
+            self.settings_location_label.show()
+        return self.settings_widget
+
+    def _build_capture(self):
+        page = QtWidgets.QWidget()
+        outer = QtWidgets.QVBoxLayout(page)
+        self._capture_layout = outer
+        outer.addWidget(self._build_settings())
+        self.settings_location_label = text_label(
+            "在左侧设置尺量参考、窗口和距离计划；定位完成后在这里确认采点。", "muted")
+        self.settings_location_label.hide()
+        outer.addWidget(self.settings_location_label)
+        self.guided = QtWidgets.QGroupBox("按计划采点 · 不控制机械移动")
+        gf = QtWidgets.QVBoxLayout(self.guided)
         self.plan_button = QtWidgets.QPushButton("采用计划 / 从第一个位置开始")
         self.plan_button.clicked.connect(self.use_plan)
-        gf.addRow(self.plan_button)
+        gf.addWidget(self.plan_button)
         self.step_label = text_label("先采用计划，再手动定位。", "viewBanner")
-        gf.addRow(self.step_label)
+        gf.addWidget(self.step_label)
         outer.addWidget(self.guided)
         self.free = QtWidgets.QGroupBox("自由采点")
         ff = QtWidgets.QFormLayout(self.free)
@@ -173,6 +212,7 @@ class FingerDisplacementWidget(QtWidgets.QWidget):
     def _build_intervals(self):
         page = QtWidgets.QWidget()
         layout = QtWidgets.QVBoxLayout(page)
+        layout.setSizeConstraint(QtWidgets.QLayout.SizeConstraint.SetMinimumSize)
         layout.addWidget(text_label("已保存会话可拖动阴影选区，或输入起止秒数；为每个区间填写尺量距离和用途。原始 IQ 不改写。", "muted"))
         self.interval_plot = pg.PlotWidget(title="本次相对相位与区间选择")
         self.interval_plot.setLabel("bottom", "实验时间", units="s")
@@ -219,6 +259,7 @@ class FingerDisplacementWidget(QtWidgets.QWidget):
         editor_layout.addLayout(actions)
         layout.addWidget(self.editor)
         self.table = QtWidgets.QTableWidget(0, 6)
+        self.table.setMinimumHeight(150)
         self.table.setHorizontalHeaderLabels(["用途", "尺量 mm", "起点 s", "终点 s", "动作", "状态"])
         self.table.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
         self.table.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
@@ -228,11 +269,15 @@ class FingerDisplacementWidget(QtWidgets.QWidget):
         layout.addWidget(self.table, 2)
         self.interval_note = text_label("尚无稳定区间。现场完成窗口后会自动加入；停止后也可从保存曲线补充标注。", "muted")
         layout.addWidget(self.interval_note)
-        return page
+        scroll = QtWidgets.QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setWidget(page)
+        return scroll
 
     def _build_report(self):
         page = QtWidgets.QWidget()
         layout = QtWidgets.QVBoxLayout(page)
+        layout.setSizeConstraint(QtWidgets.QLayout.SizeConstraint.SetMinimumSize)
         layout.addWidget(text_label("仅用标定区间拟合，再用独立验证区间检验。失败或超出有效范围时保留原因，不显示虚构毫米数。", "muted"))
         row = QtWidgets.QHBoxLayout()
         self.analyze_button = QtWidgets.QPushButton("分析标定与独立验证 / 保存结果")
@@ -262,12 +307,16 @@ class FingerDisplacementWidget(QtWidgets.QWidget):
         layout.addLayout(charts, 1)
         self.report_text = QtWidgets.QPlainTextEdit()
         self.report_text.setReadOnly(True)
+        self.report_text.setMinimumHeight(150)
         self.report_text.setPlaceholderText("标定范围、拟合与验证误差、质量拒绝原因将在此显示。")
         layout.addWidget(self.report_text, 1)
         self.report_path = text_label("分析结果作为派生文件保存，不覆盖原始实验。", "muted")
         self.report_path.setTextInteractionFlags(QtCore.Qt.TextInteractionFlag.TextSelectableByMouse)
         layout.addWidget(self.report_path)
-        return page
+        scroll = QtWidgets.QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setWidget(page)
+        return scroll
 
     @staticmethod
     def parse_distances(text):
@@ -304,6 +353,7 @@ class FingerDisplacementWidget(QtWidgets.QWidget):
     def _method_changed(self):
         guided = self.method.currentData() == "guided"
         self.guided.setVisible(guided)
+        self.guided_settings.setVisible(guided)
         self.free.setVisible(not guided)
         self._availability()
 

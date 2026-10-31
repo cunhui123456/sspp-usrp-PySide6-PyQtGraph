@@ -35,8 +35,10 @@ def export_figures(report, directory):
                 ax.axhline(line["y"], color="#81909a", linewidth=.8, linestyle="--")
             ax.set_title(chart["title"], fontproperties=font_properties, loc="left")
             source = next((s for s in report.get("sources", []) if s["key"] == report.get("reference_key")), {})
-            if report.get("kind") == "material_sweep":
+            if report.get("kind") in ("material_sweep", "liquid_temperature_sweep"):
                 heading = f"参考：{source.get('label', '')} · {report.get('reference_key', '')}  |  差值 = 目标 − 参考"
+            elif report.get("kind") == "liquid_temperature_phase":
+                heading = "各温度平台使用各自run内的参考位置；只比较相对响应，远离为正"
             else:
                 heading = "各实验使用自己的静止参考；参考结束为时间零点，不代表动作同步"
             fig.suptitle(heading, fontproperties=font_properties, fontsize=9, color="#586c79")

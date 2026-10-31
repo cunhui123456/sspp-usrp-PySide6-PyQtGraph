@@ -1,0 +1,85 @@
+{
+  "installed_utc": "20261027T062320Z",
+  "backup": "/Users/cunhui/Git-Projects/Academic_Research/sspp-usrp-PySide6-PyQtGraph/.cache/liquid_temperature_backup_20261027T062320Z",
+  "files": [
+    {
+      "path": "README.md",
+      "sha256": "84feb948b72d00d6add7b32b63b7d7e47685ae32aeee86a04ba91fa5ab46867d"
+    },
+    {
+      "path": "docs/experiment_workflows.md",
+      "sha256": "59dcc9fe3b8b8dea5c3da0efa3f7b47355119ee85b8a2a76168b8434c7a479d4"
+    },
+    {
+      "path": "docs/liquid_temperature_experiment.md",
+      "sha256": "619e3d9859b0338ab5117329b51c262298a70a753f006f98d044b6c82a065ae0"
+    },
+    {
+      "path": "docs/liquid_temperature_validation_20261027.json",
+      "sha256": "f328ce50cbd11c850b061e692aaeb2930b1ed47a0f992ca5fe5237ac3934da9f"
+    },
+    {
+      "path": "sspp_desktop/comparison_export.py",
+      "sha256": "b1f6563fac34eefa4055572736e5fb8263a87c22a95259d10109678c135ce3b0"
+    },
+    {
+      "path": "sspp_desktop/liquid_temperature_service.py",
+      "sha256": "7ecfe7ec24c63a4c78271d09e1809679bb5376c55eb44a886ba27de9ccc21c4e"
+    },
+    {
+      "path": "sspp_desktop/liquid_temperature_widget.py",
+      "sha256": "d456105e1dd85da5d495c719b8a2b87e005f808713548933d7c3aa9a04ba82f4"
+    },
+    {
+      "path": "sspp_desktop/research.py",
+      "sha256": "a2d9243bb28e08a6b1065518d11710cfb22f35ad655baad73eade03af94cb8cb"
+    },
+    {
+      "path": "sspp_desktop/services.py",
+      "sha256": "16217b2d70aefc35b1fc83af2e0286397e91a06ec2ee9d427b4afe5e19014079"
+    },
+    {
+      "path": "sspp_desktop/window.py",
+      "sha256": "f8182d4f2e252b8a8e383991d8824b28379677cb77a334769aceb294bb3397a1"
+    },
+    {
+      "path": "sspp_experiments/comparison.py",
+      "sha256": "6fbcf54dd92de24a64d4ebf6cbbb03964683774307e1538a32008c7035f14f50"
+    },
+    {
+      "path": "sspp_experiments/liquid_temperature/__init__.py",
+      "sha256": "992082fee44e580d21501a6d50af245ae63e4a27f77de96cc5b59d6b33ee8c9a"
+    },
+    {
+      "path": "sspp_experiments/liquid_temperature/analysis.py",
+      "sha256": "e284e4a24571fa30b1f95952b9e5a74e812d8c5143358a895175d0dba936efd5"
+    },
+    {
+      "path": "sspp_experiments/liquid_temperature/metadata.py",
+      "sha256": "748e894c9825cc1b703c2d11f41b8da5f2636aa0889335e62ef87ca930b751ff"
+    },
+    {
+      "path": "sspp_lab/controller.py",
+      "sha256": "2d5d5e1248b8efb42a0037ee7c70c79ea54cce7e6afc0f4345b553df796023c5"
+    },
+    {
+      "path": "tests/test_liquid_temperature_domain.py",
+      "sha256": "dd08cd5c2b906c6acf82afaec0414d8c8b1ccb6d5326de80781332d67e759b1e"
+    },
+    {
+      "path": "tests/test_liquid_temperature_mainwindow.py",
+      "sha256": "e28f1bb9e873e7403a3c49ca1e4485bfb562d1b56f5957c2530fff2b43b24678"
+    },
+    {
+      "path": "tests/test_liquid_temperature_service.py",
+      "sha256": "3998c121645ab1793e2032176f879628f7b46ea6922724bf0901ebedb3f5f412"
+    },
+    {
+      "path": "tests/test_liquid_temperature_ui.py",
+      "sha256": "1db81ae288b86110c634dd533b8a1af071a18656d158c0a3b896bfa76d3a7aa4"
+    }
+  ],
+  "protected_files_unchanged": 1117,
+  "protected_bytes": 1570041796,
+  "hardware_opened": false
+}

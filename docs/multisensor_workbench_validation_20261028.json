@@ -1,0 +1,76 @@
+{
+  "validated_utc": "2026-10-28T11:54:13.610661+00:00",
+  "project_name": "多传感器实验台",
+  "canonical_directory": "multisensor-workbench",
+  "execution_device": "MacBook Pro / Apple M5 Max / 64 GiB; same host as previous verified session",
+  "environments_preserved": [
+    "rf-gnuradio",
+    "rf-analysis"
+  ],
+  "full_workbench_regression": {
+    "passed": 349,
+    "subtests_passed": 190
+  },
+  "analysis_rename_compatibility_regression": {
+    "passed": 22,
+    "uses_existing_analysis_python_subprocess": true
+  },
+  "behavior": [
+    "USRP and Arduino readiness, target and log stored independently",
+    "Global initialization dialog selects either or both kinds; no hardware on opening/cancelling",
+    "One missing/failed/timed out device does not block the other",
+    "Cancel/shutdown preserve previously completed device readiness",
+    "All-device unavailable keeps history and offline analysis usable; no false ready",
+    "Configuration change and acquisition failure invalidate only the affected kind",
+    "Same-protocol initialization preserves actual Arduino channel/sample/notes",
+    "Known macOS system virtual ports excluded from UI selection",
+    "Default first experiment remains material sweep",
+    "Legacy project path symlink preserves historical absolute paths; model and annotation comparison uses resolved physical paths",
+    "Original model, annotation, data and manifest bytes remain unchanged; different runs/tampering/overlapping validation remain rejected"
+  ],
+  "validation_scope": {
+    "hardware_opened": false,
+    "new_rf_acquisition": false,
+    "real_serial_opened": false,
+    "firmware_written": false,
+    "historical_temperature_pressure_validation_retained": true
+  },
+  "visual_qa": {
+    "main_window": [
+      1080,
+      740
+    ],
+    "dual_device_dialog": [
+      520,
+      570
+    ],
+    "images": {
+      "multisensor_init_dialog_final.png": "2421baca5ed69be4ffcada76b6b5c538a5f88e5916d853dd34b42de318b912ad",
+      "multisensor_system_ports_skipped.png": "73215a5993510f00038be85c1b8f62bb011341cc98f96f2e4e88738ee30e1068",
+      "multisensor_partial_material_final.png": "585acd90a5641dbaf44a1803bd07ac75884921a85fb4f11c632e88d00a27f82c",
+      "multisensor_partial_serial_final.png": "cae90e535162a0589bd64e07a23a3899df5dc9066b728e2cc6f6aacb916b2724",
+      "multisensor_preserved_wiring_final.png": "a39c39b5fdfd8ed2867649fd77ad1974dddf6b9fef8ffc5b250b7e60e145fe85"
+    }
+  },
+  "source_sha256": {
+    "AGENTS.md": "275234f889963654a5a1271fbe66b3c2696f1b6b156b7c0fa851499a6867ffb3",
+    "CONTEXT_RULES.md": "00e6ec8f1be9c694eb60ed26d109e8ccc25115467fb8c3d935378809103f22bc",
+    "README.md": "c9759fcddaf78bd14360c1ef24803a50eae68ccbc653857e041c2d9268f867b9",
+    "docs/analysis_workbench.md": "b5e4add703daf3ffb6449674a1a0f8d7cee9b6b8ba6f24025a9d343589c0479f",
+    "docs/experiment_workflows.md": "08b5e2bf933faa5dcc38708dfe074210e0b1f64dc4359f113f44743242df007b",
+    "run_desktop.py": "43b9142a00ac91c022554fd98ab6257935f86e539b170405eea1226220fa13e4",
+    "sspp_desktop/device_environment.py": "d6dadd90c10f29c0e9804ab668acc693252c5fd4ec715bd39c074909e2d8908e",
+    "sspp_desktop/environment_dialog.py": "8c1fe35e327b20b41aaf33bcaaaec3f58bcc9c0e02441c6c246a05e00d0aeaf9",
+    "sspp_desktop/serial_ports.py": "76cb8ca41b129905a878dac9193c0deaee2731588e453519cf64ebade2fcd256",
+    "sspp_desktop/temperature_widget.py": "c366b34ee1c54695dc473625b632b97c6bc2046fa190890091d3e5e1537d95ff",
+    "sspp_desktop/window.py": "e1006b22e4ef31e5b7aa0ff96d977affe21cc62c2664d4d52e675e2aac973127",
+    "sspp_lab/controller.py": "a2ba894614efafed5e842e2491f9751a60038b41ad32dcbc297431fdebddb55a",
+    "tests/test_desktop_service.py": "e4055372c9911506a1164016499af17ca70cddcb61b67ab2c09ddb2dc591281b",
+    "tests/test_desktop_ui.py": "8573788f032d3e7acf0df95f269c18e46fdd9e10b9266922ef6a4301b1ce49d7",
+    "tests/test_device_environment.py": "da5f972c9e66b863c29db144121b7734d7db54c267946bb56677ec86e43f737d",
+    "tests/test_environment_ui.py": "1eb63e07c394a6370d54b11d382e1d4137270ff2beae8a3d50cad13ed348aa65",
+    "tests/test_initialization_logging.py": "44634dddbe825e5ea6fc3738778ac653294bd7c31653afdc0e3ad08dc6b70165",
+    "tests/test_multidevice_environment.py": "7da9579c16e37df5ce743e8606287a4c83e546f10690d78488ff8f79a5b938e6",
+    "tests/test_temperature_ui.py": "80cbf753656ad0a3a2466f24512bc730f6406da58f575a15b0a413aaec7be4a4"
+  }
+}

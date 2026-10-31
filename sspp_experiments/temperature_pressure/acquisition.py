@@ -43,6 +43,7 @@ class CaptureConfig:
     channel: str = "A2"
     baudrate: int = 9600
     notes: str = ""
+    preparation: dict | None = None
 
     def validate(self):
         if not isinstance(self.port, str) or not self.port.startswith("/dev/cu.") or "/" in self.port[len("/dev/"):]:
@@ -55,12 +56,19 @@ class CaptureConfig:
             raise ValueError("请填写实际通道说明（最多 80 字）")
         if not isinstance(self.notes, str) or len(self.notes) > 1000:
             raise ValueError("实验说明最多 1000 字")
+        if self.preparation is not None:
+            if (not isinstance(self.preparation, dict)
+                    or self.preparation.get("port") != self.port
+                    or self.preparation.get("protocol") != self.protocol
+                    or not self.preparation.get("preparation_key")):
+                raise ValueError("固件准备记录与当前端口／实验模式不一致，请重新验证")
 
 
 class SerialCaptureSession:
     """start 显式触发；默认构造和 snapshot 不打开硬件。"""
 
-    def __init__(self, root, transport_factory=PosixSerialReader):
+    def __init__(self, root, transport_factory=PosixSerialReader, *, first_sample_timeout_s=10.0,
+                 stalled_warning_s=3.0):
         self.root = Path(root).resolve()
         self.transport_factory = transport_factory
         self.lock = threading.Lock()
@@ -76,6 +84,9 @@ class SerialCaptureSession:
         self.raw_bytes = 0
         self.event_counts = Counter()
         self.started_monotonic = None
+        self.first_sample_timeout_s = max(.05, float(first_sample_timeout_s))
+        self.stalled_warning_s = max(.05, float(stalled_warning_s))
+        self.last_sample_monotonic = None
 
     @property
     def is_running(self):
@@ -97,6 +108,7 @@ class SerialCaptureSession:
             self.run_path = self.root / "Data" / "temperature_pressure_runs" / ident
             self.run_key = "temperature_pressure_runs/" + ident
             self.started_monotonic = time.monotonic()
+            self.last_sample_monotonic = None
             self.thread = threading.Thread(target=self._run, args=(config,), name="temperature-pressure-reader", daemon=True)
             self.thread.start()
         return self.run_key
@@ -113,9 +125,20 @@ class SerialCaptureSession:
 
     def snapshot(self):
         with self.lock:
+            elapsed = time.monotonic() - self.started_monotonic if self.started_monotonic else 0.0
+            sample_age = time.monotonic() - self.last_sample_monotonic if self.last_sample_monotonic else None
+            diagnostic = ""
+            if self.status == "running":
+                if not self.raw_bytes:
+                    diagnostic = f"等待首批数据（{elapsed:.1f} 秒）：尚未收到任何字节；请核对 USB 端口与已烧录程序。"
+                elif not self.rows:
+                    diagnostic = "已收到串口字节，但尚无匹配样本；请核对实验模式与板上固件，查看下方解析日志。"
+                elif sample_age is not None and sample_age >= self.stalled_warning_s:
+                    diagnostic = f"数据已停更 {sample_age:.1f} 秒；曲线保留最后实收值，请检查供电、连接和固件。"
             return {"status": self.status, "running": self.is_running, "run_key": self.run_key,
                     "rows": self.rows, "raw_bytes": self.raw_bytes, "points": list(self.preview),
-                    "events": list(self.events), "errors": list(self.errors), "event_counts": dict(self.event_counts)}
+                    "events": list(self.events), "errors": list(self.errors), "event_counts": dict(self.event_counts),
+                    "elapsed_s": elapsed, "last_sample_age_s": sample_age, "diagnostic": diagnostic}
 
     def _event(self, event, handle):
         handle.write(json.dumps(event, ensure_ascii=False, allow_nan=False) + "\n")
@@ -130,9 +153,12 @@ class SerialCaptureSession:
         parser = LineParser(config.protocol, config.channel)
         transport = None
         handles = []
+        serial_config = asdict(config)
+        preparation = serial_config.pop("preparation")
         manifest = {"acquisition_schema": SCHEMA, "schema_version": 1, "experiment": "temperature_pressure",
                     "status": "initializing", "started_utc": utc(), "label": config.sample_name,
-                    "sample_name": config.sample_name, "notes": config.notes, "serial": asdict(config),
+                    "sample_name": config.sample_name, "notes": config.notes, "serial": serial_config,
+                    "preparation": preparation,
                     "protocol": config.protocol, "data_file": "samples.csv", "channels": [config.channel] if config.protocol == "pressure_v1" else ["S6", "S7"],
                     "source_hashes": {path.name: _sha(path) for path in Path(__file__).parent.glob("*.py")},
                     "limitations": ["voltage_v uses firmware nominal 5 V reference; not calibrated temperature or pressure",
@@ -162,6 +188,7 @@ class SerialCaptureSession:
             _save(self.run_path / "manifest.json", manifest)
             self._event({"kind": "capture_started", "text": "串口接收开始；未发送控制命令", **self._stamp()}, events_file)
             last_flush = time.monotonic()
+            opened_monotonic = last_flush
             stop_deadline = None
             while True:
                 stopping = self.stop_event.is_set()
@@ -173,6 +200,13 @@ class SerialCaptureSession:
                     if time.monotonic() >= stop_deadline:
                         break
                 data = transport.read(timeout=0.1)
+                if not stopping and not self.rows and time.monotonic() - opened_monotonic >= self.first_sample_timeout_s:
+                    if data is None:
+                        kind = "no_serial_data" if not self.raw_bytes else "protocol_timeout"
+                        message = ("未收到任何串口字节，请核对 USB 端口、供电和已烧录程序"
+                                   if not self.raw_bytes else "已收到字节但没有符合所选协议的样本，请重新烧录或验证对应程序")
+                        self._event({"kind": kind, "text": message, **self._stamp()}, events_file)
+                        raise TimeoutError(f"{self.first_sample_timeout_s:g} 秒内{message}")
                 if data is None:
                     continue
                 if not isinstance(data, bytes) or not data:
@@ -187,10 +221,15 @@ class SerialCaptureSession:
                     self.raw_bytes += len(data)
                     self.rows += len(rows)
                     self.preview.extend(rows)
+                    if rows:
+                        self.last_sample_monotonic = time.monotonic()
                 if time.monotonic() - last_flush >= 0.25:
                     for handle in handles:
                         handle.flush()
                     last_flush = time.monotonic()
+                if not stopping and not self.rows and time.monotonic() - opened_monotonic >= self.first_sample_timeout_s:
+                    self._event({"kind": "protocol_timeout", "text": "串口持续有字节但没有符合所选协议的样本", **self._stamp()}, events_file)
+                    raise TimeoutError("串口有输出但协议验证超时，请重新烧录或验证对应程序")
                 if stopping and b"\n" in data:
                     # 最多等待一个未完成行；同批实收多余字节仍保留于原始文件。
                     break

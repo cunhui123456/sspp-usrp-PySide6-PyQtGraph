@@ -18,6 +18,9 @@ def history_category(row, context=None):
     """旧 phase 与明确登记的手指研究保持不同类别；旧 CLI sweep 仍属材料扫频。"""
     context = context or {}
     key, mode = row.get("key", ""), row.get("mode", "")
+    experiment = context.get("experiment", row.get("experiment"))
+    if experiment in ("liquid_temperature_sweep", "liquid_temperature_phase"):
+        return experiment
     if key.startswith("teacher_runs/") or mode == "teacher":
         return "teacher_sweep"
     if key.startswith("runs/") or mode == "sweep":
@@ -101,7 +104,7 @@ def _parameters(record):
               "tx_antenna": _text(hardware.get("tx_antenna")), "rx_antenna": _text(hardware.get("rx_antenna")),
               "master_clock_rate_hz": _number(hardware.get("master_clock_rate")),
               "sensor": _text(context.get("sensor"))}
-    if record["kind"] == "material_sweep":
+    if record["kind"] in ("material_sweep", "liquid_temperature_sweep"):
         for key in ("nfft", "verify_cycles", "measure_cycles", "verify_tolerance_hz", "switch_settle_time"):
             params[key] = _number(sweep.get(key))
         names = {"logic.py", "sweep_logic.py", "do_sweep.py"}
@@ -206,9 +209,11 @@ def build_comparison(root, keys, reference_key=None):
               "reference_key": reference_key, "sources": [], "compatibility": [], "warnings": [],
               "quantitative_difference_allowed": False, "charts": [], "metrics": [], "tables": {}}
     compatible = compare_parameters(records, reference_index, report)
-    if records[0]["kind"] == "material_sweep":
+    if records[0]["kind"] in ("material_sweep", "liquid_temperature_sweep"):
         from .material_sweep.comparison import compare_sweeps
         compare_sweeps(records, reference_index, report, compatible)
+    elif records[0]["kind"] == "liquid_temperature_phase":
+        raise ValueError("液体温度相位实验请在液体温度影响页按同一次记录的稳定区间分析，不能跨记录相减相位")
     else:
         from .finger_displacement.comparison import compare_phase
         compare_phase(records, reference_index, report)

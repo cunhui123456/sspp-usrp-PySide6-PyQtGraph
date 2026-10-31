@@ -1,0 +1,23 @@
+{
+  "installed_utc": "2026-10-28T11:10:24.057532+00:00",
+  "files": {
+    "README.md": "d451b56c2936cfc70967ae45b7e8acaa67cf8336c2a6116809e68bfce60afccf",
+    "docs/experiment_workflows.md": "041e98189dce97d28a877cd2906a8fffa7c962cea9181bc3a2945dd28bbdb413",
+    "sspp_desktop/device_environment.py": "15b7b49035335f549940bce487f6a9eea39161840baabcbe054751ce6afbf75b",
+    "sspp_desktop/environment_dialog.py": "59e98330429dbcdd8541915f7edcc77d6db4688ce347ee47bda909ed0e7c8f53",
+    "sspp_desktop/window.py": "90bbf452a328f8cf2308a39f9753493d0c53b7360c30f47269c2ed9b3f766d77",
+    "tests/test_desktop_ui.py": "ba13fabca3e010ca8ea661843de065848de0b5cdaca5c484c6a3c84c77b11599",
+    "tests/test_device_environment.py": "e9a2edab519be02e3bb0d3a214253c87713f26c34eb601136682a1ed48054fb9",
+    "tests/test_environment_ui.py": "595cbdf7e0e58fb6bf79d5f932b2102fc8232cf3b109d0890c5770514df6f1fb",
+    "tests/test_experiment_navigation.py": "dfed3525c057b79630a1a33922c941dc5c542050b4476278d268687134f7fcec",
+    "tests/test_initialization_logging.py": "6e55527d618b2bd48bddd4371fa66da002cb55916ece46ab6fa7e0d886bfe4f3",
+    "tests/test_research_ui.py": "18235053e8ba21ce68f605a39d4588c531e3b5e644e2a35f39a3b29ed001a4c7",
+    "docs/global_environment_validation_20261028.json": "ec0bf22a9a03af661c8cdf903bcb4a6ae98ac571e8a147a9f6797391bff7cfd2"
+  },
+  "protected_files_unchanged": 1120,
+  "protected_bytes": 1570045208,
+  "persistent_backups_created": false,
+  "hardware_opened_by_installation": false,
+  "desktop_launcher_unchanged": true,
+  "running_application_restarted": false
+}

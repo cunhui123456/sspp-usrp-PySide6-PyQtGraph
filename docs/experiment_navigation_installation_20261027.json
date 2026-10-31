@@ -1,0 +1,54 @@
+{
+  "installed_utc": "20261027T064750Z",
+  "files": [
+    {
+      "path": "sspp_desktop/window.py",
+      "sha256": "0d001fe6f107a50f02db037f4d415943ea4de8b3b4ff74a92ecc76622c700e0c"
+    },
+    {
+      "path": "sspp_desktop/experiments/finger_displacement.py",
+      "sha256": "d33206491d9097bfa71ddd18c96f17c87e7803c7e7790fcf1056cea5276e945a"
+    },
+    {
+      "path": "sspp_desktop/liquid_temperature_widget.py",
+      "sha256": "aedde773e58fd54e7f4ed3f48d2fce1821fc9bdb8824fdb145230cbf9176cc03"
+    },
+    {
+      "path": "sspp_desktop/temperature_widget.py",
+      "sha256": "a966dc782786d7d82c489e4ce505ec9b801b073c3dbed05c6010e3a56e2625a6"
+    },
+    {
+      "path": "tests/test_desktop_ui.py",
+      "sha256": "94ea2b6ec4717e245ef55bbf66bd545e59046d3ac66aa3697d3d3006a1e8c001"
+    },
+    {
+      "path": "tests/test_comparison_ui.py",
+      "sha256": "3ae63366e0817e95ef41d73b7a25b7ccdb28e196948ba58a0deec2e5155279f5"
+    },
+    {
+      "path": "tests/test_liquid_temperature_mainwindow.py",
+      "sha256": "77505ca2bb38e894a5c0a4dd3d479c4c08cee912d1d86d4bf42680e6d90a819a"
+    },
+    {
+      "path": "tests/test_experiment_navigation.py",
+      "sha256": "4f60a2691e616219f9fbaffb5bfa29eae9e1eb3dd9b487fcf45236ab902cc954"
+    },
+    {
+      "path": "README.md",
+      "sha256": "a3ac750bdba29f97b47411a6613405be16522dcec09a143a5feeef12dc51ba71"
+    },
+    {
+      "path": "docs/experiment_workflows.md",
+      "sha256": "1720bfd73f1c72112b2631960d4950d36e0b09c7e1aa3a9cae38000d8663ada1"
+    },
+    {
+      "path": "docs/experiment_navigation_validation_20261027.json",
+      "sha256": "229cb9c5fa5be35a8db68d5444f2ebf40b92b2a4d88db34defbf93cb2ce16015"
+    }
+  ],
+  "backup": "/Users/cunhui/Git-Projects/Academic_Research/sspp-usrp-PySide6-PyQtGraph/.cache/experiment_navigation_backup_20261027T064750Z",
+  "protected_files_unchanged": 1118,
+  "protected_bytes": 1570041912,
+  "desktop_launcher_unchanged": true,
+  "hardware_opened": false
+}

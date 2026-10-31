@@ -1,0 +1,51 @@
+{
+  "validated_utc": "2026-10-28T09:46:09.336758+00:00",
+  "execution_device": "MacBook Pro / Apple M5 Max / 64 GiB",
+  "environment": "existing rf-gnuradio",
+  "full_offline_regression": {
+    "passed": 313,
+    "subtests_passed": 178
+  },
+  "new_real_subprocess_logging_tests": 12,
+  "new_child_progress_and_output_isolation_tests": 8,
+  "offscreen_failure_preview": {
+    "size": [
+      1080,
+      740
+    ],
+    "notice_height_px": 112,
+    "initialize_enabled": true,
+    "start_enabled": false,
+    "fixture": "offline fake service with long failed diagnostic; no hardware",
+    "image_sha256": "54edbdb08128b80785611b169bdbf05a3c5eac407566fbd3fb963907868ef3b8"
+  },
+  "confirmed_software_defects": [
+    "Previous parent discarded driver stderr",
+    "Previous CLI restored stdout before interpreter shutdown, allowing native late logs to corrupt strict JSON",
+    "Previous text-mode communicate used strict decoding for driver stderr"
+  ],
+  "actual_reported_hardware_failure_cause": "unknown; previous diagnostic output was not retained",
+  "implemented": [
+    "Real-time flushed parent Terminal output and per-attempt .cache/initialization_logs file",
+    "Driver phases, errors, cancellation, timeout, return code and failure tail retained",
+    "Incremental replacement decoding for diagnostic stderr; strict isolated versioned stdout result",
+    "Original stdout FD reserved only for JSON; late native stdout remains directed to stderr",
+    "Per-attempt device identifier redaction, bounded buffers, drain and reader join",
+    "File or terminal sink errors do not gate hardware success; GUI shows saved log path"
+  ],
+  "hardware_opened": false,
+  "new_acquisition": false,
+  "experimental_Data_written": false,
+  "launcher_changed": false,
+  "persistent_backups_created": false,
+  "source_sha256": {
+    "README.md": "ea6fc1b2a065e49fd443b0bc85000363ca7a1cbdcb1c55b89dc6cb97e85f2b8b",
+    "docs/experiment_workflows.md": "d5d5e141d2d43b30bee75d48c8108104c0cfe251b4a5ca36904790e9404c2cf0",
+    "sspp_desktop/device_environment.py": "eb513ddf7325e7ececbea677bd4bf6f8fdfe72a09cc624743bacbd3926dae21c",
+    "sspp_desktop/initialize_device.py": "d952be62377f4202eef355c41b5e134461e6561874fa116c0bd13a80ecd3e6ab",
+    "sspp_desktop/window.py": "2d0ab091961ab034e02473d53e336dc709e42572c9297fc3e8a46a3dd93dd4e1",
+    "tests/test_device_environment.py": "90e53fdd8c9895c7bc6c122fb336fd0308e29e3d57b2b678611fc6933d9504c3",
+    "tests/test_initialization_logging.py": "92c7a1c7898b7e14118fef20d3d5a1c115d86e9adea46358d8df2df7a3e02b99",
+    "tests/test_initialize_device_progress.py": "7b0e10ded10c660a68f3882c8c65a4842ddae84d9f3a53f209cdf6f83b3609a5"
+  }
+}

@@ -17,6 +17,19 @@ from sspp_lab.controller import DEFAULTS, LabError
 
 
 class DesktopContracts(unittest.TestCase):
+    def test_old_and_renamed_project_acquisitions_both_block_new_rf_start(self):
+        for folder in ("sspp-usrp-PySide6-PyQtGraph", "multisensor-workbench"):
+            with self.subTest(folder=folder), tempfile.TemporaryDirectory() as temporary:
+                service = DesktopService(Settings(root=Path(temporary)))
+                with patch.object(service, "environment_matches", return_value=True), \
+                     patch.object(service, "preflight"), \
+                     patch("sspp_lab.controller.subprocess.run") as processes, \
+                     patch("sspp_lab.controller.subprocess.Popen") as launch:
+                    processes.return_value.stdout = f"123 python /workspace/{folder}/run_phase.py acquire\n"
+                    with self.assertRaisesRegex(LabError, "另一个.*采集进程"):
+                        service.start({**DEFAULTS, "setup_confirmed": True})
+                    launch.assert_not_called()
+
     def test_root_env_loaded_without_modifying_process_environment(self):
         import os
         with tempfile.TemporaryDirectory() as folder:
@@ -59,7 +72,8 @@ class DesktopContracts(unittest.TestCase):
             except LabError as exc:
                 failures.append(str(exc))
 
-        with patch.object(service, "preflight", side_effect=prepare), \
+        with patch.object(service, "environment_matches", return_value=True), \
+             patch.object(service, "preflight", side_effect=prepare), \
              patch("sspp_lab.controller.subprocess.run") as process_list, \
              patch("sspp_lab.controller.subprocess.Popen") as launch:
             process_list.return_value.stdout = ""

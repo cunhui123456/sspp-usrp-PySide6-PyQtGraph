@@ -88,13 +88,15 @@ class ResearchUiTests(unittest.TestCase):
             window._render_live({"mode": None, "points": []})
             self.assertEqual(window.live_plots.mode, "sweep")
             window.confirm.setChecked(True)
+            service.initialize_environment({"kind": "usrp", "profile": window.profile.currentData()})
             window.start_experiment()
             self.assertIsNone(service.started)
             self.assertIn("材料", window.notice.text())
             window.material_workspace.material_name.setText("水瓶_2of3")
             self.assertEqual(window.config()["condition"], "material")
             self.assertEqual(window.config()["label"], "水瓶_2of3")
-            window.mode.setCurrentIndex(window.mode.findData("phase"))
+            self.assertTrue(window.select_experiment("finger"))
+            self.wait(lambda: not window.runner.pending)
             self.assertEqual(window.config()["condition"], "finger")
             self.assertEqual(window.config()["label"], "finger_session")
             self.assertEqual(window.fields["duration"].maximum(), 180)
@@ -205,11 +207,14 @@ class ResearchUiTests(unittest.TestCase):
 
     def test_begin_and_analysis_use_background_threads_and_stop_stays_available(self):
         service = ResearchService()
-        # 在窗口启动轮询前建立伪采集状态，避免排队的旧空闲快照覆盖断言。
-        service.job = {"status": "running", "config": {"mode": "phase"}, "baseline": {"end_s": 7}}
         window = MainWindow(service)
+        window.timer.stop()
         try:
-            self.wait(lambda: window.profile.count() == 1)
+            self.wait(lambda: window.profile.count() == 1 and not window.runner.pending)
+            self.assertTrue(window.select_experiment("finger"))
+            self.wait(lambda: not window.runner.pending)
+            # 明确选择手指实验，并排空旧空闲快照后再注入正在采集状态。
+            service.job = {"status": "running", "config": {"mode": "phase"}, "baseline": {"end_s": 7}}
             window._apply_status(service.snapshot())
             window.finger_workspace.apply_snapshot(service.finger_snapshot())
             window.finger_workspace.use_plan()

@@ -74,6 +74,7 @@ class ComparisonUiTests(unittest.TestCase):
     def setUp(self):
         self.service = ComparisonService()
         self.window = MainWindow(self.service)
+        self.window.open_archive()
         self.window.show()
         self.wait(lambda: bool(self.window.history_rows) and not self.window.runner.pending)
 
@@ -237,6 +238,9 @@ class ComparisonUiTests(unittest.TestCase):
 
     def test_export_blocks_reference_and_selection_until_background_finishes(self):
         keys, dialog = self.prepare_comparison()
+        self.window.initialize_environment()
+        self.wait(lambda: not self.window.runner.pending)
+        self.assertTrue(self.window.start_button.isEnabled())
         self.service.export_release.clear()
         with patch.object(QtWidgets.QFileDialog, "getSaveFileName", return_value=("/private/tmp/comparison_ui_result.zip", "")):
             self.window._export_comparison(dialog)

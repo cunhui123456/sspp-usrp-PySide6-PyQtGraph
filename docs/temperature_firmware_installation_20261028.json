@@ -1,0 +1,42 @@
+{
+  "installed_at": "2026-10-28T21:39:39.272538+08:00",
+  "project": "/Users/cunhui/Git-Projects/Academic_Research/multisensor-workbench",
+  "files": {
+    "CONTEXT_RULES.md": "0f79cf9f35d56138926a62798fe3c2e9e6dba0a6347cd8430055299e56351ff8",
+    "README.md": "0f6fd228932518e9bf9b390aea0311bfeee856608cbf68bc8bb88f667eb66b8b",
+    "firmware/temperature_pressure/pressure_v1.hex": "5f3427533da4f7297d7b09b9ec967b09460c0b50b43df13802b752990bccafbb",
+    "firmware/temperature_pressure/README.md": "149d3643f52ef4aa2108871731316eec7938c465bcfec6fb86538705f44267cc",
+    "firmware/temperature_pressure/manifest.json": "dea66ce1a2bf0f016b49f73aa4312c0295dc5d70d5839f351ded54d4053e35e9",
+    "firmware/temperature_pressure/Temperature_Pressure_Acquisition.ino": "2c1c2ac397b57a212fb590da369df2ffcd609dddd96559b8a9be23efeb456ef3",
+    "firmware/temperature_pressure/Temperature_Channel_Check.ino": "6e42c71f437a941dc74aa0be1884a430ab6230097bc811a23899731b1c0d8c96",
+    "firmware/temperature_pressure/temperature_v1.hex": "e87cef73d7337f91141ade236f4db33bcebf95012f3f7a43e3e11446adc55910",
+    "tests/test_temperature_firmware.py": "f68ccf3d9278f20998c02bdd1a5343c0caa32637714999591ce22bb0fadc7453",
+    "tests/test_temperature_capture.py": "24e53312bb4b616058a015e29b0347eb3e522ceb154dfc4075d6adebb89398fd",
+    "tests/test_environment_ui.py": "a02fbdcd07c3257336b37d995e97155cd82aa4a95acc1681f88b1d780e5593a4",
+    "tests/test_temperature_ui.py": "efbd13bbb91a45e9010ef64c9ac2eb869a739978e965bb282ccb23181189617d",
+    "docs/temperature_firmware_workflow.md": "0c33076caee5b252386b246f6a4b13b2eff89fb01bfba30ca003eccd5ef73b04",
+    "docs/serial_diagnosis_20261028.json": "17748e6a2f112c73746cf13b03cce4f6fa923c637cfc9f15c2796997c0ea066d",
+    "docs/temperature_firmware_validation_20261028.json": "858121225adeecb94bf4ca9bc6ce9bdd1627d5b62acd593731262f3ede85cb87",
+    "docs/experiment_workflows.md": "2cfed3eb1b2f6fa044f3eeb33ccab1af6ed5d2a29fd8aad67ee6d99cfbcd7dea",
+    "docs/analysis_workbench.md": "f7df97352344f37d5dc608beb8318ed28c7f81c1f55d708862b45137818f044b",
+    "sspp_experiments/temperature_pressure/firmware.py": "b31f452f397bb1423e1d555cb7a0568182755da4c971929850efb91229444fed",
+    "sspp_experiments/temperature_pressure/__init__.py": "06e4a83c9194338ae2147dcb39e63e77e8f0f61221092219bb9800a64108963e",
+    "sspp_experiments/temperature_pressure/acquisition.py": "13826707cff0c28770cae60192c707e29cd91a0853b5791127298669ae2e81db",
+    "sspp_desktop/window.py": "a4427dc94fa09a212aa0183a51ca0c3d990cb35ba26397eb18fe7b4255543437",
+    "sspp_desktop/temperature_widget.py": "218d813170357ec965ba50e5bba17c94f5e363ba4ac95f4d28e9be5c88de3184",
+    "sspp_desktop/serial_ports.py": "db0b2a5c048a18436a44a4d10fd97e2a106fb371c6e201538bff13115cf4b996",
+    "sspp_desktop/environment_dialog.py": "a1c577e12d639141e246879ba7ceb008decb214bb371eb07094aa7c180f352f9"
+  },
+  "native_uploader": {
+    "path": "/opt/homebrew/bin/avrdude",
+    "config": "/opt/homebrew/etc/avrdude.conf",
+    "architecture": "/opt/homebrew/Cellar/avrdude/8.3/bin/avrdude: Mach-O 64-bit executable arm64",
+    "help_exit_code": 0,
+    "sha256": "9d78ffd17f8684d723d9176d534a8382ef167598caedfba1d8b19626a81b428c"
+  },
+  "protected_files_unchanged": 1668,
+  "protected_bytes": 1604570074,
+  "device_opened": false,
+  "firmware_uploaded": false,
+  "persistent_code_backups_created": false
+}

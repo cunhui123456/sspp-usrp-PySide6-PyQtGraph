@@ -1,0 +1,26 @@
+{
+  "date": "2026-10-27",
+  "device": "macbook-pro-m5max-64g",
+  "hardware": {
+    "model": "Mac17,6",
+    "chip": "Apple M5 Max",
+    "memory_bytes": 68719476736
+  },
+  "environment": "rf-gnuradio",
+  "test_command": "QT_QPA_PLATFORM=offscreen PYQTGRAPH_QT_LIB=PySide6 MPLBACKEND=Agg python -B -m pytest -q",
+  "tests": 233,
+  "subtests": 125,
+  "synthetic_report_rendering": [
+    "sweep",
+    "single_phase",
+    "cross_run_phase"
+  ],
+  "synthetic_slopes_deg_per_mm": [
+    2.0,
+    3.0
+  ],
+  "zip_sha256_verification": true,
+  "ui": "offscreen widgets and main-window lifecycle; screenshot inspection",
+  "hardware_opened": false,
+  "scientific_result": "No new RF acquisition; actual liquid temperature effect remains unmeasured."
+}

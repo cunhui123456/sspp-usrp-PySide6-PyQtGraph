@@ -21,7 +21,7 @@ DEFAULTS={'mode':'sweep','condition':'empty','label':'empty_baseline','sensor':'
           'freq_start_ghz':2.4,'freq_stop_ghz':3.0,'points':12,'repeat':3,
           'carrier_ghz':2.4,'rate':250000,'tone':10000,'tone_start':2000,'tone_step':1000,
           'amplitude':.3,'tx_gain':20,'rx_gain':30,'duration':120,'max_seconds':90,
-          'point_timeout':8,'setup_confirmed':False}
+          'point_timeout':8,'setup_confirmed':False,'liquid_temperature':None}
 
 class LabError(Exception):
     def __init__(self,message,status=400):
@@ -41,6 +41,10 @@ def validate_request(value,require_setup=True):
     if not isinstance(value,dict): raise LabError('实验配置必须是对象')
     if set(value)-set(DEFAULTS)-{'profile'}: raise LabError('存在未知实验参数')
     cfg={**DEFAULTS,**value}
+    if cfg['liquid_temperature'] is not None:
+        from sspp_experiments.liquid_temperature.metadata import validate_metadata
+        try: cfg['liquid_temperature']=validate_metadata(cfg['liquid_temperature'])
+        except ValueError as exc: raise LabError(str(exc)) from exc
     if cfg['mode'] not in ('sweep','phase'): raise LabError('请选择扫频或连续幅相')
     if cfg['condition'] not in ('empty','finger','material'): raise LabError('实验条件无效')
     for key in ['label','sensor']:
@@ -174,8 +178,8 @@ class LabController:
             # 同时检查原仓库与新仓库的已知采集入口，不初始化设备。
             listing=subprocess.run(['ps','-axo','pid=,command='],capture_output=True,text=True,timeout=5).stdout
             for line in listing.splitlines():
-                if 'sspp-usrp' in line and any(x in line for x in ('run_local.py acquire','run_phase.py acquire','run_teacher.py','sspp_lab.acquire_')):
-                    raise LabError('发现另一个 SSPP 采集进程，请先结束它',409)
+                if any(name in line for name in ('sspp-usrp','multisensor-workbench')) and any(x in line for x in ('run_local.py acquire','run_phase.py acquire','run_teacher.py','sspp_lab.acquire_')):
+                    raise LabError('发现另一个射频采集进程，请先结束它',409)
             with self.lock:
                 if self.closed or self.prepare_cancelled:
                     raise LabError('启动已取消；未启动采集',409)

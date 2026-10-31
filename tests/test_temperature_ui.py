@@ -1,5 +1,5 @@
-"""Qt 温压页面：明确开始、异步保存、互斥和生命周期；仅 fake reader。"""
-
+"""Qt 温压工作流：显式固件准备、数据验证、采集门控和生命周期；仅 fake 设备。"""
+import json
 import os
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 from pathlib import Path
@@ -9,18 +9,87 @@ import tempfile
 import textwrap
 import time
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from PySide6 import QtCore, QtWidgets
 from sspp_desktop.temperature_widget import TemperaturePressureWidget
 from sspp_experiments.temperature_pressure import SerialCaptureSession
 from test_temperature_capture import FakeReader
 
+PORT = "/dev/cu.usbserial-FAKE"
+
+
+class FakePreparation:
+    def __init__(self):
+        self.is_running = False
+        self.result = None
+        self.status = "idle"
+        self.calls = []
+        self.write_active = False
+        self.stop_requested = False
+
+    def start(self, port, protocol, board="nano_old", upload=True):
+        self.calls.append((port, protocol, board, upload))
+        self.status, self.is_running, self.result = "checking", True, None
+        self.target = dict(port=port, protocol=protocol, board=board)
+
+    def finish(self, status="ready"):
+        self.status, self.is_running = status, False
+        if status == "ready":
+            self.result = dict(self.target, upload=self.calls[-1][3], preparation_key="device_preparations/FAKE",
+                               artifacts=[], firmware_sha256=None, firmware_identity="protocol_only")
+
+    def matches(self, port, protocol, board="nano_old"):
+        return self.status == "ready" and all(self.result.get(k) == v for k, v in dict(port=port, protocol=protocol, board=board).items())
+
+    def snapshot(self):
+        return {"status": self.status, "running": self.is_running, "message": "数据验证通过" if self.status == "ready" else "准备固件 " + self.status,
+                "log": ["fake 设备日志"], "result": self.result, "write_active": self.write_active}
+
+    def invalidate(self):
+        self.result = None
+        if self.is_running:
+            self.request_stop()
+        else:
+            self.status = "idle"
+
+    def request_stop(self):
+        self.stop_requested = True
+        if not self.write_active:
+            self.status, self.is_running = "cancelled", False
+
+    def stop(self, timeout_s=2):
+        if self.is_running:
+            self.request_stop()
+        return not self.is_running
+
 
 class TemperatureUiTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+
+    def setUp(self):
+        self.temporary = tempfile.TemporaryDirectory()
+        self.ports = patch("sspp_desktop.temperature_widget.list_serial_ports", return_value=[PORT])
+        self.ports.start()
+        self.widgets = []
+
+    def tearDown(self):
+        for widget in reversed(self.widgets):
+            widget.close()
+            widget.deleteLater()
+        QtCore.QCoreApplication.sendPostedEvents(None, QtCore.QEvent.Type.DeferredDelete)
+        self.app.processEvents()
+        self.ports.stop()
+        self.temporary.cleanup()
+
+    def widget(self, reader=None):
+        preparation = FakePreparation()
+        session = SerialCaptureSession(self.temporary.name, Mock(return_value=reader or FakeReader([])))
+        widget = TemperaturePressureWidget(Path(self.temporary.name), session=session, preparation=preparation)
+        self.widgets.append(widget)
+        return widget
 
     def pump(self, predicate, timeout=3):
         end = time.monotonic() + timeout
@@ -31,65 +100,250 @@ class TemperatureUiTests(unittest.TestCase):
             time.sleep(.005)
         self.fail("Qt fake serial condition timed out")
 
-    def dispose(self, widget):
-        widget.close()
-        widget.deleteLater()
-        QtCore.QCoreApplication.sendPostedEvents(None, QtCore.QEvent.Type.DeferredDelete)
-        self.app.processEvents()
+    def prepare(self, widget):
+        widget.confirm.setChecked(True)
+        widget.start_preparation(upload=False)
+        self.assertTrue(widget.is_running)
+        widget.preparation.finish()
+        widget._poll()
+        self.assertTrue(widget.preparation_ready)
+        self.assertFalse(widget.is_running)
 
-    def test_requires_confirmation_then_saves_and_emits_once(self):
-        with tempfile.TemporaryDirectory() as temporary, patch("sspp_desktop.temperature_widget.list_serial_ports", return_value=["/dev/cu.FAKE"]):
-            reader = FakeReader([b"100,2.7\n150,2.8\n"])
-            session = SerialCaptureSession(temporary, lambda port, baud: reader)
-            widget = TemperaturePressureWidget(Path(temporary), session=session)
-            completed, busy = [], []
-            widget.run_completed.connect(completed.append)
-            widget.busy_changed.connect(busy.append)
-            try:
-                widget.sample_name.setText("sample")
-                widget.start_capture()
-                self.assertFalse(widget.is_running)
-                widget.confirm.setChecked(True)
-                widget.set_external_busy(True)
-                widget.start_capture()
-                self.assertFalse(widget.is_running)
-                widget.set_external_busy(False)
-                widget.start_capture()
-                self.assertTrue(widget.is_running)
-                self.assertFalse(widget.config_group.isEnabled())
-                self.assertTrue(widget.stop_button.isEnabled())
-                self.pump(lambda: session.snapshot()["rows"] == 2)
-                widget.stop_capture()
-                self.pump(lambda: bool(completed))
-                widget._poll()
-                self.assertEqual(len(completed), 1)
-                self.assertEqual(busy, [True, False])
-                self.assertTrue(widget.config_group.isEnabled())
-                self.assertIn("A2", widget.lines)
-                self.assertIn("已停止并保存", widget.status.text())
-                self.assertTrue((Path(temporary) / "Data" / completed[0] / "manifest.json").is_file())
-            finally:
-                self.dispose(widget)
-            self.assertTrue(reader.closed)
-            self.assertFalse(session.is_running)
+    def test_construct_and_mode_change_never_open_or_upload(self):
+        widget = self.widget()
+        self.assertFalse(widget.start_button.isEnabled())
+        self.assertEqual(widget.preparation.calls, [])
+        widget.protocol.setCurrentIndex(1)
+        widget.session.transport_factory.assert_not_called()
+        self.assertEqual(widget.preparation.calls, [])
+        self.assertEqual(widget.channel.text(), "A1 / S6,S7")
+        self.assertFalse(widget.preparation_ready)
+
+    def test_global_open_check_is_not_data_ready_and_preparation_requires_it(self):
+        widget = self.widget()
+        widget.set_environment_required(True)
+        widget.confirm.setChecked(True)
+        self.assertFalse(widget.upload_button.isEnabled())
+        widget.start_preparation(upload=False)
+        self.assertIn("初始化实验台", widget.status.text())
+        self.assertEqual(widget.preparation.calls, [])
+        widget.set_environment_ready(True)
+        self.assertTrue(widget.verify_button.isEnabled())
+        self.assertFalse(widget.start_button.isEnabled())
+        widget.start_capture()
+        self.assertIn("固件准备", widget.status.text())
+        widget.session.transport_factory.assert_not_called()
+        self.prepare(widget)
+        self.assertTrue(widget.start_button.isEnabled())
+        widget.set_environment_ready(False)
+        self.assertFalse(widget.preparation_ready)
+        self.assertFalse(widget.start_button.isEnabled())
+
+    def test_upload_requires_hardware_confirmation_and_review_dialog(self):
+        widget = self.widget()
+        with patch.object(widget, "_confirm_upload", return_value=False) as confirm:
+            widget.start_preparation()
+            confirm.assert_not_called()
+            widget.confirm.setChecked(True)
+            widget.start_preparation()
+            confirm.assert_called_once()
+            self.assertEqual(widget.preparation.calls, [])
+        with patch.object(widget, "_confirm_upload", return_value=True):
+            widget.start_preparation()
+        self.assertEqual(widget.preparation.calls, [(PORT, "pressure_v1", "nano_old", True)])
+        self.assertTrue(widget.is_running)
+        self.assertFalse(widget.config_group.isEnabled())
+        self.assertTrue(widget.stop_button.isEnabled())
+        self.assertFalse(widget.start_button.isEnabled())
+        self.assertEqual(widget.stop_button.text(), "取消准备")
+        widget.stop_capture()
+        widget._poll()
+        self.assertFalse(widget.is_running)
+        self.assertFalse(widget.preparation_ready)
+
+    def test_preparation_failure_cancel_and_external_busy_do_not_enable_capture(self):
+        widget = self.widget()
+        widget.confirm.setChecked(True)
+        widget.set_external_busy(True)
+        widget.start_preparation(upload=False)
+        self.assertEqual(widget.preparation.calls, [])
+        widget.set_external_busy(False)
+        events, errors = [], []
+        widget.busy_changed.connect(events.append)
+        widget.error.connect(errors.append)
+        widget.start_preparation(upload=False)
+        widget.preparation.finish("failed")
+        widget._poll()
+        self.assertEqual(events, [True, False])
+        self.assertTrue(errors)
+        self.assertFalse(widget.start_button.isEnabled())
+        self.assertTrue(widget.verify_button.isEnabled())
+        self.assertIn("fake 设备日志", widget.event_text.toPlainText())
+
+    def test_cancelling_write_keeps_busy_until_backend_finishes(self):
+        widget = self.widget()
+        widget.confirm.setChecked(True)
+        with patch.object(widget, "_confirm_upload", return_value=True):
+            widget.start_preparation()
+        widget.preparation.write_active = True
+        widget.stop_capture()
+        self.assertTrue(widget.is_running)
+        self.assertFalse(widget.stop_button.isEnabled())
+        self.assertIn("请勿拔线", widget.status.text())
+        self.assertFalse(widget.shutdown(.01))
+        widget.preparation.write_active = False
+        widget.preparation.finish("cancelled")
+        widget._poll()
+        self.assertFalse(widget.is_running)
+        self.assertFalse(widget.start_button.isEnabled())
+
+    def test_new_port_or_protocol_requires_new_preparation(self):
+        widget = self.widget()
+        self.prepare(widget)
+        widget.port.addItem("other", "/dev/cu.usbserial-OTHER")
+        widget.port.setCurrentIndex(1)
+        self.assertFalse(widget.preparation_ready)
+        self.assertFalse(widget.confirm.isChecked())
+        self.assertFalse(widget.start_button.isEnabled())
+        self.prepare(widget)
+        widget.protocol.setCurrentIndex(1)
+        self.assertFalse(widget.preparation_ready)
+        self.assertFalse(widget.start_button.isEnabled())
+
+    def test_requires_sample_then_saves_bound_preparation_and_emits_once(self):
+        reader = FakeReader([b"100,2.7\n150,2.8\n"])
+        widget = self.widget(reader)
+        self.prepare(widget)
+        widget.start_capture()
+        self.assertIn("样品名称", widget.status.text())
+        widget.session.transport_factory.assert_not_called()
+        completed, busy, messages = [], [], []
+        widget.run_completed.connect(completed.append)
+        widget.busy_changed.connect(busy.append)
+        widget.message.connect(messages.append)
+        widget.sample_name.setText("sample")
+        widget.start_capture()
+        self.assertTrue(widget.is_running)
+        self.assertFalse(widget.config_group.isEnabled())
+        self.pump(lambda: widget.session.snapshot()["rows"] == 2)
+        widget.stop_capture()
+        self.pump(lambda: bool(completed))
+        widget._poll()
+        self.assertEqual(len(completed), 1)
+        self.assertEqual(busy, [True, False])
+        self.assertIn("", messages)
+        self.assertTrue(widget.config_group.isEnabled())
+        self.assertIn("A2", widget.lines)
+        self.assertIn("已停止并保存", widget.status.text())
+        self.assertTrue(widget.preparation_ready)
+        manifest = json.loads((Path(self.temporary.name) / "Data" / completed[0] / "manifest.json").read_text())
+        self.assertEqual(manifest["preparation"]["preparation_key"], "device_preparations/FAKE")
+        self.assertTrue(reader.closed)
+
+    def test_failed_capture_invalidates_both_readiness_before_busy_release(self):
+        reader = FakeReader([b"100,2.7\n", OSError("fake cable disconnected")])
+        widget = self.widget(reader)
+        widget.set_environment_required(True)
+        widget.set_environment_ready(True)
+        self.prepare(widget)
+        widget.sample_name.setText("sample")
+        completed, events = [], []
+        widget.run_completed.connect(completed.append)
+        widget.environment_invalidated.connect(lambda: events.append(("invalidated", widget.start_button.isEnabled())))
+        widget.busy_changed.connect(lambda busy: events.append(("busy", busy)))
+        widget.start_capture()
+        self.pump(lambda: bool(completed))
+        widget._poll()
+        self.assertEqual(events, [("busy", True), ("invalidated", False), ("busy", False)])
+        self.assertFalse(widget.preparation_ready)
+        self.assertFalse(widget.start_button.isEnabled())
+        self.assertTrue(reader.closed)
+
+    def test_live_wait_and_diagnostic_are_not_labelled_receiving(self):
+        widget = self.widget()
+        self.prepare(widget)
+        widget.sample_name.setText("sample")
+        widget.start_capture()
+        self.pump(lambda: widget.session.snapshot()["status"] == "running")
+        snapshot = widget.session.snapshot()
+        snapshot["diagnostic"] = "已打开串口，但未收到任何原始字节"
+        with patch.object(widget.session, "snapshot", return_value=snapshot):
+            widget._poll()
+        self.assertIn("等待首个有效样本", widget.status.text())
+        self.assertIn("未收到任何原始字节", widget.status.text())
+        widget.stop_capture()
+        self.pump(lambda: not widget.is_running)
+
+    def test_temperature_channels_draw_both_units_in_visible_side_by_side_plots(self):
+        reader = FakeReader([b"100,640,3.10,139,670,3.28\n280,642,3.12,319,690,3.38\n"])
+        widget = self.widget(reader)
+        sidebar = QtWidgets.QWidget()
+        self.widgets.append(sidebar)
+        QtWidgets.QVBoxLayout(sidebar).addWidget(widget.take_settings_widget())
+        widget.resize(720, 550)
+        widget.protocol.setCurrentIndex(widget.protocol.findData("temperature_v1"))
+        widget.show()
+        self.prepare(widget)
+        widget.sample_name.setText("synthetic two-channel")
+        widget.start_capture()
+        self.pump(lambda: widget.session.snapshot()["rows"] == 4)
+        widget._poll()
+        self.app.processEvents()
+        self.assertEqual(set(widget.lines), {"S6", "S7"})
+        self.assertEqual(list(widget.lines["S7"][0].yData), [3.28, 3.38])
+        self.assertEqual(list(widget.lines["S7"][1].yData), [670., 690.])
+        self.assertFalse(widget.adc_plot.isHidden())
+        self.assertLessEqual(widget.voltage_plot.geometry().right(), widget.adc_plot.geometry().left())
+        self.assertLessEqual(widget.adc_plot.geometry().right(), widget.plot_panel.width())
+        widget.stop_capture()
+        self.pump(lambda: not widget.is_running)
+
+    def test_validation_preserves_ready_but_session_start_failure_invalidates(self):
+        widget = self.widget()
+        self.prepare(widget)
+        widget.start_capture()
+        self.assertTrue(widget.preparation_ready)
+        widget.sample_name.setText("sample")
+        with patch.object(widget.session, "start", side_effect=RuntimeError("fake worker failed")):
+            widget.start_capture()
+        self.assertFalse(widget.preparation_ready)
+        self.assertFalse(widget.start_button.isEnabled())
+        widget.session.transport_factory.assert_not_called()
+
+    def test_bluetooth_port_is_never_offered_for_sensor_preparation(self):
+        with patch("sspp_desktop.temperature_widget.list_serial_ports", return_value=["/dev/cu.ULTFIELD1", "/dev/cu.Bluetooth-Incoming-Port"]):
+            widget = self.widget()
+        self.assertEqual(widget.port.count(), 0)
+        self.assertFalse(widget.upload_button.isEnabled())
+        self.assertIn("USB 串口", widget.status.text())
 
     def test_close_during_capture_stops_worker_and_releases_plots(self):
         from shiboken6 import isValid
-        with tempfile.TemporaryDirectory() as temporary, patch("sspp_desktop.temperature_widget.list_serial_ports", return_value=["/dev/cu.FAKE"]):
-            reader = FakeReader([b"100,2.7\n"])
-            session = SerialCaptureSession(temporary, lambda port, baud: reader)
-            widget = TemperaturePressureWidget(Path(temporary), session=session)
-            widget.sample_name.setText("sample")
-            widget.confirm.setChecked(True)
-            widget.start_capture()
-            self.pump(lambda: session.snapshot()["rows"] == 1)
-            plot = widget.voltage_plot
-            self.dispose(widget)
-            self.assertFalse(session.is_running)
-            self.assertTrue(reader.closed)
-            self.assertFalse(isValid(plot))
+        reader = FakeReader([b"100,2.7\n"])
+        widget = self.widget(reader)
+        self.prepare(widget)
+        widget.sample_name.setText("sample")
+        widget.start_capture()
+        self.pump(lambda: widget.session.snapshot()["rows"] == 1)
+        plot = widget.voltage_plot
+        widget.close()
+        widget.deleteLater()
+        self.widgets.remove(widget)
+        QtCore.QCoreApplication.sendPostedEvents(None, QtCore.QEvent.Type.DeferredDelete)
+        self.app.processEvents()
+        self.assertTrue(reader.closed)
+        self.assertFalse(isValid(plot))
 
-    def test_qt_process_exits_cleanly_after_temperature_widget_cycles(self):
+    def test_settings_reparent_preserves_controls(self):
+        widget = self.widget()
+        sidebar = QtWidgets.QWidget()
+        self.widgets.append(sidebar)
+        QtWidgets.QVBoxLayout(sidebar).addWidget(widget.take_settings_widget())
+        self.assertIs(widget.take_settings_widget(), widget.settings_widget)
+        self.prepare(widget)
+        self.assertTrue(widget.start_button.isEnabled())
+
+    def test_qt_process_exits_cleanly_without_opening_devices(self):
         program = textwrap.dedent("""
             import tempfile
             from pathlib import Path
@@ -112,6 +366,7 @@ class TemperatureUiTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("temperature Qt cleanup passed", result.stdout)
         self.assertNotIn("shared QObject was deleted", result.stderr)
+        self.assertNotIn("AttributeError", result.stderr)
 
 
 if __name__ == "__main__":

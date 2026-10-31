@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""启动 SSPP 桌面软件；默认空闲，不自动打开硬件。"""
+"""启动多传感器实验台；默认空闲，不自动打开硬件。"""
 import argparse
 import os
 from pathlib import Path
@@ -37,14 +37,14 @@ def main():
     from PySide6.QtCore import QLockFile
     from sspp_desktop.window import MainWindow
     app = QApplication(sys.argv[:1])
-    app.setApplicationName("SSPP 实验室")
-    app.setOrganizationName("SSPP Research")
+    app.setApplicationName("多传感器实验台")
+    app.setOrganizationName("Sensor Research")
     cache = settings.root / ".cache"
     cache.mkdir(exist_ok=True)
     instance_lock = QLockFile(str(cache / "desktop.lock"))
     instance_lock.setStaleLockTime(0)
     if not instance_lock.tryLock(0):
-        QMessageBox.information(None, "SSPP 实验室", "此项目的桌面软件已经运行，请使用现有窗口。")
+        QMessageBox.information(None, "多传感器实验台", "此项目的桌面软件已经运行，请使用现有窗口。")
         return 1
     window = MainWindow(service)
     window.show()

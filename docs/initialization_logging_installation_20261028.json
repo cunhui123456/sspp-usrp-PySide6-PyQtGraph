@@ -1,0 +1,20 @@
+{
+  "installed_utc": "2026-10-28T10:20:59.797228+00:00",
+  "files": {
+    "README.md": "ea6fc1b2a065e49fd443b0bc85000363ca7a1cbdcb1c55b89dc6cb97e85f2b8b",
+    "docs/experiment_workflows.md": "d5d5e141d2d43b30bee75d48c8108104c0cfe251b4a5ca36904790e9404c2cf0",
+    "sspp_desktop/device_environment.py": "eb513ddf7325e7ececbea677bd4bf6f8fdfe72a09cc624743bacbd3926dae21c",
+    "sspp_desktop/initialize_device.py": "d952be62377f4202eef355c41b5e134461e6561874fa116c0bd13a80ecd3e6ab",
+    "sspp_desktop/window.py": "2d0ab091961ab034e02473d53e336dc709e42572c9297fc3e8a46a3dd93dd4e1",
+    "tests/test_device_environment.py": "90e53fdd8c9895c7bc6c122fb336fd0308e29e3d57b2b678611fc6933d9504c3",
+    "tests/test_initialization_logging.py": "92c7a1c7898b7e14118fef20d3d5a1c115d86e9adea46358d8df2df7a3e02b99",
+    "tests/test_initialize_device_progress.py": "7b0e10ded10c660a68f3882c8c65a4842ddae84d9f3a53f209cdf6f83b3609a5",
+    "docs/initialization_logging_validation_20261028.json": "850b71cb91a5431c62253e4ddbe3b07511f8c7dc1f6f435d451bfafcba348677"
+  },
+  "protected_files_unchanged": 1119,
+  "protected_bytes": 1570042073,
+  "persistent_backups_created": false,
+  "hardware_opened_by_installation": false,
+  "desktop_launcher_unchanged": true,
+  "running_application_restarted": false
+}

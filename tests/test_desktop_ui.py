@@ -26,6 +26,70 @@ class FakeService:
         self.stopped = False
         self.closed = False
         self.preflight_release = threading.Event()
+        self.environments = {kind: {"state": "idle", "target": None, "message": "设备未初始化", "log_path": None}
+                             for kind in ("usrp", "serial")}
+        self._batch_initializing = False
+        self._batch_cancelled = False
+        self._active_kind = None
+        self.initialize_calls = []
+        self.workbench_calls = []
+
+    @property
+    def environment(self):
+        return self.environment_snapshot()
+
+    def environment_snapshot(self, kind=None):
+        if kind is not None:
+            return dict(self.environments[kind])
+        devices = {key: dict(value) for key, value in self.environments.items()}
+        states = [item["state"] for item in devices.values()]
+        state = ("initializing" if self._batch_initializing or "initializing" in states else
+                 "ready" if all(item == "ready" for item in states) else
+                 "partial" if "ready" in states else
+                 "cancelled" if self._batch_cancelled or "cancelled" in states else
+                 "unavailable" if any(item in {"failed", "skipped"} for item in states) else "idle")
+        message = "已就绪设备可开始实验" if state in {"partial", "ready"} else "；".join(item["message"] for item in devices.values())
+        return {"state": state, "devices": devices, "message": message, "log_path": None}
+
+    def initialize_environment(self, target, *, cancel_event=None):
+        if cancel_event is not None and cancel_event.is_set():
+            self.cancel_environment_initialization()
+            return self.environment_snapshot(target["kind"])
+        self.initialize_calls.append(dict(target))
+        self.environments[target["kind"]] = {"state": "ready", "target": dict(target), "message": "初始化检查通过，未开始采集", "log_path": None}
+        return self.environment_snapshot(target["kind"])
+
+    def initialize_workbench(self, targets, *, cancel_event=None):
+        self.workbench_calls.append({kind: dict(value) if value else None for kind, value in targets.items()})
+        self._batch_initializing, self._batch_cancelled = True, False
+        try:
+            for kind in ("serial", "usrp"):
+                target = targets.get(kind)
+                if target is None:
+                    if self.environments[kind]["state"] != "ready":
+                        self.environments[kind] = {"state": "skipped", "target": None, "message": "本次跳过", "log_path": None}
+                    continue
+                if cancel_event is not None and cancel_event.is_set():
+                    self._batch_cancelled = True
+                    break
+                self.initialize_environment(target, cancel_event=cancel_event)
+        finally:
+            self._active_kind = None
+            self._batch_initializing = False
+        return self.environment_snapshot()
+
+    def invalidate_environment(self, kind=None):
+        for key in (kind,) if kind else ("usrp", "serial"):
+            self.environments[key] = {"state": "idle", "target": None, "message": "设备未初始化", "log_path": None}
+
+    def environment_matches(self, target):
+        state = self.environment_snapshot(target["kind"])
+        return state["state"] == "ready" and state["target"] == target
+
+    def cancel_environment_initialization(self):
+        self._batch_cancelled = True
+        if self._active_kind is not None:
+            self.environments[self._active_kind] = {"state": "cancelled", "target": None, "message": "已取消", "log_path": None}
 
     def refresh_profiles(self):
         return [{"id": "own", "name": "测试配置", "channel": 0}]
@@ -114,7 +178,9 @@ class DesktopUiTests(unittest.TestCase):
         window = MainWindow(service)
         window.show()
         try:
-            self.pump_until(lambda: window.profile.count() == 1)
+            self.pump_until(lambda: window.profile.count() == 1 and not window.runner.pending)
+            self.assertTrue(window.select_experiment("finger"))
+            self.pump_until(lambda: not window.runner.pending)
             self.assertEqual(window.config()["mode"], "phase")
             self.assertEqual(set(window.config()), set(__import__("sspp_lab.controller", fromlist=["DEFAULTS"]).DEFAULTS) | {"profile"})
             window.preflight()
@@ -124,6 +190,8 @@ class DesktopUiTests(unittest.TestCase):
             self.assertIn("preflight", window.runner.pending)
             service.preflight_release.set()
             self.pump_until(lambda: "preflight" not in window.runner.pending)
+            window.initialize_environment()
+            self.pump_until(lambda: "initialize_environment" not in window.runner.pending)
             window.start_experiment()
             self.assertIsNone(service.started)  # 接线确认不能跳过。
             window.confirm.setChecked(True)
@@ -155,6 +223,8 @@ class DesktopUiTests(unittest.TestCase):
         window.timer.stop()
         try:
             self.pump_until(lambda: window.profile.count() == 1 and not window.runner.pending)
+            self.assertTrue(window.select_experiment("finger"))
+            self.pump_until(lambda: not window.runner.pending)
             window.profile.addItem("另一测试设备", "teacher")
             window.profile.setCurrentIndex(1)
             window.fields["label"].setText("session_keep")
@@ -199,6 +269,8 @@ class DesktopUiTests(unittest.TestCase):
         window.timer.stop()
         try:
             self.pump_until(lambda: window.profile.count() == 1 and not window.runner.pending)
+            self.assertTrue(window.select_experiment("finger"))
+            self.pump_until(lambda: not window.runner.pending)
             window.fields["carrier_ghz"].setValue(3.5)
             window.confirm.setChecked(True)
             for snapshot in ([{"job": {"status": status}} for status in
@@ -295,6 +367,7 @@ class DesktopUiTests(unittest.TestCase):
         window = MainWindow(service)
         window.show()
         try:
+            window.open_archive()
             self.pump_until(lambda: bool(window.history_rows))
             for mode in ("phase", "sweep"):
                 index = next(i for i, row in enumerate(window.history_rows) if row["mode"] == mode and row["status"] == "complete")

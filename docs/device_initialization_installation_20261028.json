@@ -1,0 +1,25 @@
+{
+  "installed_utc": "2026-10-28T08:28:09.510680+00:00",
+  "files": {
+    "README.md": "4319f55658a2f3f4db5a5c07013caed995d3b267b4f4c27febf07216db94c207",
+    "docs/experiment_workflows.md": "93a2d23455d54c3eac8bf83cc82383897d9f757da43f42e5b5f2dec460364f18",
+    "sspp_desktop/window.py": "da0a89831b1489c61111bd6d7a067d5212ea50d44816a01f5bd053c50cef87be",
+    "sspp_desktop/services.py": "65ab5051419761e07ab75e5806535e60bf4c90cb9fa8759cd649164b44d40de9",
+    "sspp_desktop/device_environment.py": "03cf0be78d89e3c5f5b020196e0b05044bc1b23e4d894ae83a77c08c3f176695",
+    "sspp_desktop/initialize_device.py": "f8483d1e7599a56d932f91df7edc664e3c55e9b0a503f4df2b6b67c324c7e812",
+    "sspp_desktop/temperature_widget.py": "636fcc23b693d9500051fb266fab2bd8b51d8381a40afc67aabbb961157b4280",
+    "tests/test_desktop_ui.py": "65a995b2cc5649ab863a71176fd1980f99e1dfb5e32891bc898ccd023ffd214b",
+    "tests/test_desktop_service.py": "42adef341cb815a7b74e9e139dc4efc6f3bb20e254623ec31c4ea7d4fe8b8141",
+    "tests/test_research_ui.py": "aacd074199e2a389e9c014ae0f3d59b6414496e6abf14f08354f77498b449785",
+    "tests/test_temperature_ui.py": "117904eed3134f32620f618cdc21186d649e396b5ffeca03258c60e51ebfa748",
+    "tests/test_comparison_ui.py": "aa1875a4090b418caf791bf838bd99acdf6417527d2148582876787dfb72d708",
+    "tests/test_device_environment.py": "2c6291904bc850d846537e01b4154b5793e96a9623fcf818094a32d6f30a956d",
+    "tests/test_environment_ui.py": "b9100e071b9370c4aa8186fdb702ca1a64f0c2ab6f392bbbd14d61a371c51319",
+    "docs/device_initialization_validation_20261028.json": "7e6655be0bdffbca3801a614ea8694c18c342f3ef3f7f5bd5e91c347b88f7905"
+  },
+  "persistent_backups_created": false,
+  "protected_files_unchanged": 1119,
+  "protected_bytes": 1570042073,
+  "hardware_opened_by_installation": false,
+  "desktop_launcher_unchanged": true
+}
